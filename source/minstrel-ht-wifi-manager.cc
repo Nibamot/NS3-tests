@@ -46,6 +46,7 @@
 #include "mac-low.h"
 #include "chrono"
 #include "thread"
+#include <python2.7/Python.h>
 
 #define Min(a,b) ((a < b) ? a : b)
 #define Max(a,b) ((a > b) ? a : b)
@@ -81,7 +82,7 @@ std::map <int, float> genagglengthexpth = {};
 
 
 float globalchanutil, globalchanutilns3, globalchanutilplatform;
-bool ns3val = true;
+bool ns3val = false;
 int checker = 0;
 std::map<Mac48Address, float> chanutil = {};
 std::map<Mac48Address, float> successrations3 = {};
@@ -113,7 +114,7 @@ std::map <Mac48Address, std::array<int, 4> > bannedagglengthcounterperstation = 
                                              {Mac48Address("00:00:00:00:00:0a"), sta10bannedcount}};
 
 std::map <uint16_t, int> agglengthtoindexmap = {{550,0},{1024,1},{2048,2},{3839,3}};
-
+uint len_1, len_2, len_3, len_4;
 
 ///MinstrelHtWifiRemoteStation structure
 struct MinstrelHtWifiRemoteStation : MinstrelWifiRemoteStation
@@ -1942,15 +1943,16 @@ MinstrelHtWifiManager::StatsDump (MinstrelHtWifiRemoteStation *station, uint8_t 
               std::cout<<" percent of Channel Utilization in platform:"<<globalchanutilplatform<<"\n";
               //globalchanutil=globalchanutil*100;//in % for ns3 and as it is for platform
               //MsduAggregator::setamsdusizeperstation(station->m_state->m_address, comparelastandcurrentplatform(successratioplatform[station->m_state->m_address], globalchanutilns3, last_attempt_bytes[station->m_state->m_address], minstrel_throughput[station->m_state->m_address], idx, lastmcsperaddress[station->m_state->m_address],station->m_state->m_address));
+              MsduAggregator::setamsdusizeperstation(station->m_state->m_address, comparelastandcurrentrfrplatform(successratioplatform[station->m_state->m_address], globalchanutilns3, last_attempt_bytes[station->m_state->m_address], minstrel_throughput[station->m_state->m_address], idx, lastmcsperaddress[station->m_state->m_address],station->m_state->m_address));
             }
 
             else
             {
               globalchanutilns3 = globalchanutil;
               std::cout<<" Channel Utilization in NS3:"<<globalchanutilns3<<"\n";
-              //m5pmodelns3(successrations3[station->m_state->m_address], globalchanutilns3, idx);
               //where the compa
-              MsduAggregator::setamsdusizeperstation(station->m_state->m_address, comparelastandcurrent(successrations3[station->m_state->m_address], globalchanutilns3, idx, lastmcsperaddress[station->m_state->m_address],station->m_state->m_address));
+              //MsduAggregator::setamsdusizeperstation(station->m_state->m_address, comparelastandcurrent(successrations3[station->m_state->m_address], globalchanutilns3, idx, lastmcsperaddress[station->m_state->m_address],station->m_state->m_address));
+              //MsduAggregator::setamsdusizeperstation(station->m_state->m_address, comparelastandcurrentrfrns3(successrations3[station->m_state->m_address], globalchanutilns3, idx, lastmcsperaddress[station->m_state->m_address],station->m_state->m_address));
 
             }
 
@@ -2801,8 +2803,6 @@ std::tuple<int, float> MinstrelHtWifiManager::m5pmodelns3 (float succratio, floa
         }
       }
     }
-
-
   }
 
   std::cout<<"The expected throughput is "<<highestexp<<" for aggregation length:"<<highexpagglength<<"\n";
@@ -2810,7 +2810,7 @@ std::tuple<int, float> MinstrelHtWifiManager::m5pmodelns3 (float succratio, floa
 }
 
 
-//compare last and current mcs
+//compare last and current mcs m5p ns3
 int MinstrelHtWifiManager::comparelastandcurrent (float succratio, float gcu, uint16_t currmcs, uint16_t lastmcs, Mac48Address stadd)
 {
   float difference;
@@ -2834,6 +2834,624 @@ int MinstrelHtWifiManager::comparelastandcurrent (float succratio, float gcu, ui
 
   return agglength;
 }
+
+
+
+
+////RFR model for ns3
+std::tuple<int, float> MinstrelHtWifiManager::rfrmodelns3 (float succratio, float gcu, uint16_t mcsvalue, Mac48Address stadd)
+{
+  float expected_th = 0;
+  std::map<int,float> ::iterator expit;
+
+  if (!isnan(succratio))
+{
+  PyObject *len1load, *len2load, *len3load, *len4load,*file1args, *file2args, *file3args, *file4args;
+  Py_Initialize();
+  //std::cout<<"before imprt\n";
+  PyRun_SimpleString("from sklearn.externals import joblib\n"
+                     "import pandas\n"
+                     "import os\n");//pickle and joblib gives the
+
+  PyObject* xdata = PyList_New(2);
+  PyList_SET_ITEM(xdata, 0, PyFloat_FromDouble(double(succratio)));
+  PyList_SET_ITEM(xdata, 1, PyFloat_FromDouble(double(gcu)));
+  PyObject* xdatatup = PyList_New(1);
+  PyList_SET_ITEM(xdatatup, 0, xdata);
+  //PyObject* objectsRepresentation = PyObject_Repr(xdatatup);
+  //const char* s = PyString_AsString(objectsRepresentation);
+  //std::cout<<"xdatatup:"<<s<<"\n";
+  PyObject* xfeatures = PyList_New(2);
+  PyList_SET_ITEM(xfeatures, 0, PyString_FromString("GCU"));
+  PyList_SET_ITEM(xfeatures, 1, PyString_FromString("SUCCRATIO"));
+
+  //std::cout<<"xdta size:"<<PyTuple_GET_SIZE(xdata)<<"\n";
+  PyObject* pModulepd = PyImport_Import(PyString_FromString((char*)"pandas"));
+  PyObject* pFuncpd = PyObject_GetAttrString(pModulepd, (char*)"DataFrame");
+  PyObject* args = PyTuple_Pack(1, xdatatup);
+  PyObject *keywords = PyDict_New();
+  PyDict_SetItemString(keywords, "columns", xfeatures);
+  PyObject* xtest = PyObject_Call(pFuncpd, args, keywords);
+  PyObject* jblen1load = PyObject_GetAttrString(PyImport_Import(PyString_FromString((char*)"sklearn.externals.joblib")), (char*)"load");
+  PyObject* testobj;
+
+  /*PyObject* fileargs = PyTuple_Pack(1, PyString_FromString((char*)"/home/antfbk/NS3/repos/ns-3-allinone/ns-3-29-d977712d48a0/RFns3/mcs0_550.pkl"));
+  PyObject* lenload = PyObject_CallObject(jblen1load, fileargs);
+  std::cout<<lenload<<" end\n";*/
+  /*PyRun_SimpleString( "file = open('/home/antfbk/NS3/repos/ns-3-allinone/ns-3-29-d977712d48a0/RFns3/mcs0_1024.pkl','rb')\n"
+                      "x=joblib.load('/home/antfbk/NS3/repos/ns-3-allinone/ns-3-29-d977712d48a0/RFns3/mcs0_1024.pkl')\n"//file is not found//pickle.load is loaded wth rght file name
+                      "file.close()\n"
+                      "print(x)\n");*///only joblib refcount
+  //std::cout<<"PVALUE:"<<f<<"\n";
+  if (mcsvalue == 0)
+  {
+    //PyObject* jblen1mod = PyImport_Import(PyString_FromString((char*)"pandas"));
+     file1args = PyTuple_Pack(1, PyString_FromString((char*)"/home/antfbk/NS3/repos/ns-3-allinone/ns-3-29-d977712d48a0/RFns3/mcs0_550.pkl"));
+     len1load = PyObject_CallObject(jblen1load, file1args);
+     file2args = PyTuple_Pack(1, PyString_FromString((char*)"/home/antfbk/NS3/repos/ns-3-allinone/ns-3-29-d977712d48a0/RFns3/mcs0_1024.pkl"));
+     len2load = PyObject_CallObject(jblen1load, file2args);
+     file3args = PyTuple_Pack(1, PyString_FromString((char*)"/home/antfbk/NS3/repos/ns-3-allinone/ns-3-29-d977712d48a0/RFns3/mcs0_2048.pkl"));
+     len3load = PyObject_CallObject(jblen1load, file3args);
+     file4args = PyTuple_Pack(1, PyString_FromString((char*)"/home/antfbk/NS3/repos/ns-3-allinone/ns-3-29-d977712d48a0/RFns3/mcs0_3839.pkl"));
+     len4load = PyObject_CallObject(jblen1load, file4args);
+
+     for(expit = mcs0agglengthexpth.begin(); expit != mcs0agglengthexpth.end(); expit++)
+     {
+       if(expit->first == 550)
+       {
+         testobj = PyObject_Repr(PyObject_GetItem(PyObject_CallObject(PyObject_GetAttrString(len1load, (char*)"predict"),PyTuple_Pack(1,xtest)), PyLong_FromLong(0)));
+         char* mcs0sa550 = PyString_AsString(testobj);
+         expected_th =  atof(mcs0sa550);
+         //std::cout<<"Expected Th:"<<expected_th<<"\n";
+         expit->second = expected_th;
+       }
+
+       if(expit->first == 1024)
+       {
+         testobj = PyObject_Repr(PyObject_GetItem(PyObject_CallObject(PyObject_GetAttrString(len2load, (char*)"predict"),PyTuple_Pack(1,xtest)), PyLong_FromLong(0)));
+         char* mcs0sa1024 = PyString_AsString(testobj);
+         expected_th =  atof(mcs0sa1024);
+         //std::cout<<"Expected Th:"<<expected_th<<"\n";
+         expit->second = expected_th;
+       }
+
+       if(expit->first == 2048)
+       {
+         testobj = PyObject_Repr(PyObject_GetItem(PyObject_CallObject(PyObject_GetAttrString(len3load, (char*)"predict"),PyTuple_Pack(1,xtest)), PyLong_FromLong(0)));
+         char* mcs0sa2048 = PyString_AsString(testobj);
+         expected_th =  atof(mcs0sa2048);
+         //std::cout<<"Expected Th:"<<expected_th<<"\n";
+         expit->second = expected_th;
+       }
+
+       if(expit->first == 3839)
+       {
+         testobj = PyObject_Repr(PyObject_GetItem(PyObject_CallObject(PyObject_GetAttrString(len4load, (char*)"predict"),PyTuple_Pack(1,xtest)), PyLong_FromLong(0)));
+         char* mcs0sa3839 = PyString_AsString(testobj);
+         expected_th =  atof(mcs0sa3839);
+         //std::cout<<"Expected Th:"<<expected_th<<"\n";
+         expit->second = expected_th;
+       }
+     }
+     genagglengthexpth = mcs0agglengthexpth;
+  }
+
+  if (mcsvalue == 1)
+  {
+     file1args = PyTuple_Pack(1, PyString_FromString((char*)"/home/antfbk/NS3/repos/ns-3-allinone/ns-3-29-d977712d48a0/RFns3/mcs1_550.pkl"));
+     len1load = PyObject_CallObject(jblen1load, file1args);
+     file2args = PyTuple_Pack(1, PyString_FromString((char*)"/home/antfbk/NS3/repos/ns-3-allinone/ns-3-29-d977712d48a0/RFns3/mcs1_1024.pkl"));
+     len2load = PyObject_CallObject(jblen1load, file2args);
+     file3args = PyTuple_Pack(1, PyString_FromString((char*)"/home/antfbk/NS3/repos/ns-3-allinone/ns-3-29-d977712d48a0/RFns3/mcs1_2048.pkl"));
+     len3load = PyObject_CallObject(jblen1load, file3args);
+     file4args = PyTuple_Pack(1, PyString_FromString((char*)"/home/antfbk/NS3/repos/ns-3-allinone/ns-3-29-d977712d48a0/RFns3/mcs1_3839.pkl"));
+     len4load = PyObject_CallObject(jblen1load, file4args);
+
+     for(expit = mcs1agglengthexpth.begin(); expit != mcs1agglengthexpth.end(); expit++)
+     {
+       if(expit->first == 550)
+       {
+         testobj = PyObject_Repr(PyObject_GetItem(PyObject_CallObject(PyObject_GetAttrString(len1load, (char*)"predict"),PyTuple_Pack(1,xtest)), PyLong_FromLong(0)));
+         char* mcs1sa550 = PyString_AsString(testobj);
+         expected_th =  atof(mcs1sa550);
+         //std::cout<<"Expected Th:"<<expected_th<<"\n";
+         expit->second = expected_th;
+       }
+
+       if(expit->first == 1024)
+       {
+         testobj = PyObject_Repr(PyObject_GetItem(PyObject_CallObject(PyObject_GetAttrString(len2load, (char*)"predict"),PyTuple_Pack(1,xtest)), PyLong_FromLong(0)));
+         char* mcs1sa1024 = PyString_AsString(testobj);
+         expected_th =  atof(mcs1sa1024);
+         //std::cout<<"Expected Th:"<<expected_th<<"\n";
+         expit->second = expected_th;
+       }
+
+       if(expit->first == 2048)
+       {
+         testobj = PyObject_Repr(PyObject_GetItem(PyObject_CallObject(PyObject_GetAttrString(len3load, (char*)"predict"),PyTuple_Pack(1,xtest)), PyLong_FromLong(0)));
+         char* mcs1sa2048 = PyString_AsString(testobj);
+         expected_th =  atof(mcs1sa2048);
+         //std::cout<<"Expected Th:"<<expected_th<<"\n";
+         expit->second = expected_th;
+       }
+
+       if(expit->first == 3839)
+       {
+         testobj = PyObject_Repr(PyObject_GetItem(PyObject_CallObject(PyObject_GetAttrString(len4load, (char*)"predict"),PyTuple_Pack(1,xtest)), PyLong_FromLong(0)));
+         char* mcs1sa3839 = PyString_AsString(testobj);
+         expected_th =  atof(mcs1sa3839);
+         //std::cout<<"Expected Th:"<<expected_th<<"\n";
+         expit->second = expected_th;
+       }
+     }
+     genagglengthexpth = mcs1agglengthexpth;
+  }
+
+  if (mcsvalue == 2)
+  {
+     file1args = PyTuple_Pack(1, PyString_FromString((char*)"/home/antfbk/NS3/repos/ns-3-allinone/ns-3-29-d977712d48a0/RFns3/mcs2_550.pkl"));
+     len1load = PyObject_CallObject(jblen1load, file1args);
+     file2args = PyTuple_Pack(1, PyString_FromString((char*)"/home/antfbk/NS3/repos/ns-3-allinone/ns-3-29-d977712d48a0/RFns3/mcs2_1024.pkl"));
+     len2load = PyObject_CallObject(jblen1load, file2args);
+     file3args = PyTuple_Pack(1, PyString_FromString((char*)"/home/antfbk/NS3/repos/ns-3-allinone/ns-3-29-d977712d48a0/RFns3/mcs2_2048.pkl"));
+     len3load = PyObject_CallObject(jblen1load, file3args);
+     file4args = PyTuple_Pack(1, PyString_FromString((char*)"/home/antfbk/NS3/repos/ns-3-allinone/ns-3-29-d977712d48a0/RFns3/mcs2_3839.pkl"));
+     len4load = PyObject_CallObject(jblen1load, file4args);
+
+     for(expit = mcs2agglengthexpth.begin(); expit != mcs2agglengthexpth.end(); expit++)
+     {
+       if(expit->first == 550)
+       {
+         testobj = PyObject_Repr(PyObject_GetItem(PyObject_CallObject(PyObject_GetAttrString(len1load, (char*)"predict"),PyTuple_Pack(1,xtest)), PyLong_FromLong(0)));
+         char* mcs2sa550 = PyString_AsString(testobj);
+         expected_th =  atof(mcs2sa550);
+         //std::cout<<"Expected Th:"<<expected_th<<"\n";
+         expit->second = expected_th;
+       }
+
+       if(expit->first == 1024)
+       {
+         testobj = PyObject_Repr(PyObject_GetItem(PyObject_CallObject(PyObject_GetAttrString(len2load, (char*)"predict"),PyTuple_Pack(1,xtest)), PyLong_FromLong(0)));
+         char* mcs2sa1024 = PyString_AsString(testobj);
+         expected_th =  atof(mcs2sa1024);
+         //std::cout<<"Expected Th:"<<expected_th<<"\n";
+         expit->second = expected_th;
+       }
+
+       if(expit->first == 2048)
+       {
+         testobj = PyObject_Repr(PyObject_GetItem(PyObject_CallObject(PyObject_GetAttrString(len3load, (char*)"predict"),PyTuple_Pack(1,xtest)), PyLong_FromLong(0)));
+         char* mcs2sa2048 = PyString_AsString(testobj);
+         expected_th =  atof(mcs2sa2048);
+         //std::cout<<"Expected Th:"<<expected_th<<"\n";
+         expit->second = expected_th;
+       }
+
+       if(expit->first == 3839)
+       {
+         testobj = PyObject_Repr(PyObject_GetItem(PyObject_CallObject(PyObject_GetAttrString(len4load, (char*)"predict"),PyTuple_Pack(1,xtest)), PyLong_FromLong(0)));
+         char* mcs2sa3839 = PyString_AsString(testobj);
+         expected_th =  atof(mcs2sa3839);
+         //std::cout<<"Expected Th:"<<expected_th<<"\n";
+         expit->second = expected_th;
+       }
+     }
+     genagglengthexpth = mcs2agglengthexpth;
+  }
+
+  if (mcsvalue == 3)
+  {
+     file1args = PyTuple_Pack(1, PyString_FromString((char*)"/home/antfbk/NS3/repos/ns-3-allinone/ns-3-29-d977712d48a0/RFns3/mcs3_550.pkl"));
+     len1load = PyObject_CallObject(jblen1load, file1args);
+     file2args = PyTuple_Pack(1, PyString_FromString((char*)"/home/antfbk/NS3/repos/ns-3-allinone/ns-3-29-d977712d48a0/RFns3/mcs3_1024.pkl"));
+     len2load = PyObject_CallObject(jblen1load, file2args);
+     file3args = PyTuple_Pack(1, PyString_FromString((char*)"/home/antfbk/NS3/repos/ns-3-allinone/ns-3-29-d977712d48a0/RFns3/mcs3_2048.pkl"));
+     len3load = PyObject_CallObject(jblen1load, file3args);
+     file4args = PyTuple_Pack(1, PyString_FromString((char*)"/home/antfbk/NS3/repos/ns-3-allinone/ns-3-29-d977712d48a0/RFns3/mcs3_3839.pkl"));
+     len4load = PyObject_CallObject(jblen1load, file4args);
+
+     for(expit = mcs3agglengthexpth.begin(); expit != mcs3agglengthexpth.end(); expit++)
+     {
+       if(expit->first == 550)
+       {
+         testobj = PyObject_Repr(PyObject_GetItem(PyObject_CallObject(PyObject_GetAttrString(len1load, (char*)"predict"),PyTuple_Pack(1,xtest)), PyLong_FromLong(0)));
+         char* mcs3sa550 = PyString_AsString(testobj);
+         expected_th =  atof(mcs3sa550);
+         //std::cout<<"Expected Th:"<<expected_th<<"\n";
+         expit->second = expected_th;
+       }
+
+       if(expit->first == 1024)
+       {
+         testobj = PyObject_Repr(PyObject_GetItem(PyObject_CallObject(PyObject_GetAttrString(len2load, (char*)"predict"),PyTuple_Pack(1,xtest)), PyLong_FromLong(0)));
+         char* mcs3sa1024 = PyString_AsString(testobj);
+         expected_th =  atof(mcs3sa1024);
+         //std::cout<<"Expected Th:"<<expected_th<<"\n";
+         expit->second = expected_th;
+       }
+
+       if(expit->first == 2048)
+       {
+         testobj = PyObject_Repr(PyObject_GetItem(PyObject_CallObject(PyObject_GetAttrString(len3load, (char*)"predict"),PyTuple_Pack(1,xtest)), PyLong_FromLong(0)));
+         char* mcs3sa2048 = PyString_AsString(testobj);
+         expected_th =  atof(mcs3sa2048);
+         //std::cout<<"Expected Th:"<<expected_th<<"\n";
+         expit->second = expected_th;
+       }
+
+       if(expit->first == 3839)
+       {
+         testobj = PyObject_Repr(PyObject_GetItem(PyObject_CallObject(PyObject_GetAttrString(len4load, (char*)"predict"),PyTuple_Pack(1,xtest)), PyLong_FromLong(0)));
+         char* mcs3sa3839 = PyString_AsString(testobj);
+         expected_th =  atof(mcs3sa3839);
+         //std::cout<<"Expected Th:"<<expected_th<<"\n";
+         expit->second = expected_th;
+       }
+     }
+     genagglengthexpth = mcs3agglengthexpth;
+  }
+  if (mcsvalue == 4)
+  {
+     file1args = PyTuple_Pack(1, PyString_FromString((char*)"/home/antfbk/NS3/repos/ns-3-allinone/ns-3-29-d977712d48a0/RFns3/mcs4_550.pkl"));
+     len1load = PyObject_CallObject(jblen1load, file1args);
+     file2args = PyTuple_Pack(1, PyString_FromString((char*)"/home/antfbk/NS3/repos/ns-3-allinone/ns-3-29-d977712d48a0/RFns3/mcs4_1024.pkl"));
+     len2load = PyObject_CallObject(jblen1load, file2args);
+     file3args = PyTuple_Pack(1, PyString_FromString((char*)"/home/antfbk/NS3/repos/ns-3-allinone/ns-3-29-d977712d48a0/RFns3/mcs4_2048.pkl"));
+     len3load = PyObject_CallObject(jblen1load, file3args);
+     file4args = PyTuple_Pack(1, PyString_FromString((char*)"/home/antfbk/NS3/repos/ns-3-allinone/ns-3-29-d977712d48a0/RFns3/mcs4_3839.pkl"));
+     len4load = PyObject_CallObject(jblen1load, file4args);
+
+     for(expit = mcs4agglengthexpth.begin(); expit != mcs4agglengthexpth.end(); expit++)
+     {
+       if(expit->first == 550)
+       {
+         testobj = PyObject_Repr(PyObject_GetItem(PyObject_CallObject(PyObject_GetAttrString(len1load, (char*)"predict"),PyTuple_Pack(1,xtest)), PyLong_FromLong(0)));
+         char* mcs4sa550 = PyString_AsString(testobj);
+         expected_th =  atof(mcs4sa550);
+         //std::cout<<"Expected Th:"<<expected_th<<"\n";
+         expit->second = expected_th;
+       }
+
+       if(expit->first == 1024)
+       {
+         testobj = PyObject_Repr(PyObject_GetItem(PyObject_CallObject(PyObject_GetAttrString(len2load, (char*)"predict"),PyTuple_Pack(1,xtest)), PyLong_FromLong(0)));
+         char* mcs4sa1024 = PyString_AsString(testobj);
+         expected_th =  atof(mcs4sa1024);
+         //std::cout<<"Expected Th:"<<expected_th<<"\n";
+         expit->second = expected_th;
+       }
+
+       if(expit->first == 2048)
+       {
+         testobj = PyObject_Repr(PyObject_GetItem(PyObject_CallObject(PyObject_GetAttrString(len3load, (char*)"predict"),PyTuple_Pack(1,xtest)), PyLong_FromLong(0)));
+         char* mcs4sa2048 = PyString_AsString(testobj);
+         expected_th =  atof(mcs4sa2048);
+         //std::cout<<"Expected Th:"<<expected_th<<"\n";
+         expit->second = expected_th;
+       }
+
+       if(expit->first == 3839)
+       {
+         testobj = PyObject_Repr(PyObject_GetItem(PyObject_CallObject(PyObject_GetAttrString(len4load, (char*)"predict"),PyTuple_Pack(1,xtest)), PyLong_FromLong(0)));
+         char* mcs4sa3839 = PyString_AsString(testobj);
+         expected_th =  atof(mcs4sa3839);
+         //std::cout<<"Expected Th:"<<expected_th<<"\n";
+         expit->second = expected_th;
+       }
+     }
+     genagglengthexpth = mcs4agglengthexpth;
+  }
+  if (mcsvalue == 5)
+  {
+     file1args = PyTuple_Pack(1, PyString_FromString((char*)"/home/antfbk/NS3/repos/ns-3-allinone/ns-3-29-d977712d48a0/RFns3/mcs5_550.pkl"));
+     len1load = PyObject_CallObject(jblen1load, file1args);
+     file2args = PyTuple_Pack(1, PyString_FromString((char*)"/home/antfbk/NS3/repos/ns-3-allinone/ns-3-29-d977712d48a0/RFns3/mcs5_1024.pkl"));
+     len2load = PyObject_CallObject(jblen1load, file2args);
+     file3args = PyTuple_Pack(1, PyString_FromString((char*)"/home/antfbk/NS3/repos/ns-3-allinone/ns-3-29-d977712d48a0/RFns3/mcs5_2048.pkl"));
+     len3load = PyObject_CallObject(jblen1load, file3args);
+     file4args = PyTuple_Pack(1, PyString_FromString((char*)"/home/antfbk/NS3/repos/ns-3-allinone/ns-3-29-d977712d48a0/RFns3/mcs5_3839.pkl"));
+     len4load = PyObject_CallObject(jblen1load, file4args);
+
+     for(expit = mcs5agglengthexpth.begin(); expit != mcs5agglengthexpth.end(); expit++)
+     {
+       if(expit->first == 550)
+       {
+         testobj = PyObject_Repr(PyObject_GetItem(PyObject_CallObject(PyObject_GetAttrString(len1load, (char*)"predict"),PyTuple_Pack(1,xtest)), PyLong_FromLong(0)));
+         char* mcs5sa550 = PyString_AsString(testobj);
+         expected_th =  atof(mcs5sa550);
+         //std::cout<<"Expected Th:"<<expected_th<<"\n";
+         expit->second = expected_th;
+       }
+
+       if(expit->first == 1024)
+       {
+         testobj = PyObject_Repr(PyObject_GetItem(PyObject_CallObject(PyObject_GetAttrString(len2load, (char*)"predict"),PyTuple_Pack(1,xtest)), PyLong_FromLong(0)));
+         char* mcs5sa1024 = PyString_AsString(testobj);
+         expected_th =  atof(mcs5sa1024);
+         //std::cout<<"Expected Th:"<<expected_th<<"\n";
+         expit->second = expected_th;
+       }
+
+       if(expit->first == 2048)
+       {
+         testobj = PyObject_Repr(PyObject_GetItem(PyObject_CallObject(PyObject_GetAttrString(len3load, (char*)"predict"),PyTuple_Pack(1,xtest)), PyLong_FromLong(0)));
+         char* mcs5sa2048 = PyString_AsString(testobj);
+         expected_th =  atof(mcs5sa2048);
+         //std::cout<<"Expected Th:"<<expected_th<<"\n";
+         expit->second = expected_th;
+       }
+
+       if(expit->first == 3839)
+       {
+         testobj = PyObject_Repr(PyObject_GetItem(PyObject_CallObject(PyObject_GetAttrString(len4load, (char*)"predict"),PyTuple_Pack(1,xtest)), PyLong_FromLong(0)));
+         char* mcs5sa3839 = PyString_AsString(testobj);
+         expected_th =  atof(mcs5sa3839);
+         //std::cout<<"Expected Th:"<<expected_th<<"\n";
+         expit->second = expected_th;
+       }
+     }
+     genagglengthexpth = mcs5agglengthexpth;
+  }
+  if (mcsvalue == 6)
+  {
+     file1args = PyTuple_Pack(1, PyString_FromString((char*)"/home/antfbk/NS3/repos/ns-3-allinone/ns-3-29-d977712d48a0/RFns3/mcs6_550.pkl"));
+     len1load = PyObject_CallObject(jblen1load, file1args);
+     file2args = PyTuple_Pack(1, PyString_FromString((char*)"/home/antfbk/NS3/repos/ns-3-allinone/ns-3-29-d977712d48a0/RFns3/mcs6_1024.pkl"));
+     len2load = PyObject_CallObject(jblen1load, file2args);
+     file3args = PyTuple_Pack(1, PyString_FromString((char*)"/home/antfbk/NS3/repos/ns-3-allinone/ns-3-29-d977712d48a0/RFns3/mcs6_2048.pkl"));
+     len3load = PyObject_CallObject(jblen1load, file3args);
+     file4args = PyTuple_Pack(1, PyString_FromString((char*)"/home/antfbk/NS3/repos/ns-3-allinone/ns-3-29-d977712d48a0/RFns3/mcs6_3839.pkl"));
+     len4load = PyObject_CallObject(jblen1load, file4args);
+
+     for(expit = mcs6agglengthexpth.begin(); expit != mcs6agglengthexpth.end(); expit++)
+     {
+       if(expit->first == 550)
+       {
+         testobj = PyObject_Repr(PyObject_GetItem(PyObject_CallObject(PyObject_GetAttrString(len1load, (char*)"predict"),PyTuple_Pack(1,xtest)), PyLong_FromLong(0)));
+         char* mcs6sa550 = PyString_AsString(testobj);
+         expected_th =  atof(mcs6sa550);
+         //std::cout<<"Expected Th:"<<expected_th<<"\n";
+         expit->second = expected_th;
+       }
+
+       if(expit->first == 1024)
+       {
+         testobj = PyObject_Repr(PyObject_GetItem(PyObject_CallObject(PyObject_GetAttrString(len2load, (char*)"predict"),PyTuple_Pack(1,xtest)), PyLong_FromLong(0)));
+         char* mcs6sa1024 = PyString_AsString(testobj);
+         expected_th =  atof(mcs6sa1024);
+         //std::cout<<"Expected Th:"<<expected_th<<"\n";
+         expit->second = expected_th;
+       }
+
+       if(expit->first == 2048)
+       {
+         testobj = PyObject_Repr(PyObject_GetItem(PyObject_CallObject(PyObject_GetAttrString(len3load, (char*)"predict"),PyTuple_Pack(1,xtest)), PyLong_FromLong(0)));
+         char* mcs6sa2048 = PyString_AsString(testobj);
+         expected_th =  atof(mcs6sa2048);
+         //std::cout<<"Expected Th:"<<expected_th<<"\n";
+         expit->second = expected_th;
+       }
+
+       if(expit->first == 3839)
+       {
+         testobj = PyObject_Repr(PyObject_GetItem(PyObject_CallObject(PyObject_GetAttrString(len4load, (char*)"predict"),PyTuple_Pack(1,xtest)), PyLong_FromLong(0)));
+         char* mcs6sa3839 = PyString_AsString(testobj);
+         expected_th =  atof(mcs6sa3839);
+         //std::cout<<"Expected Th:"<<expected_th<<"\n";
+         expit->second = expected_th;
+       }
+     }
+     genagglengthexpth = mcs6agglengthexpth;
+  }
+  if (mcsvalue == 7)
+  {
+     file1args = PyTuple_Pack(1, PyString_FromString((char*)"/home/antfbk/NS3/repos/ns-3-allinone/ns-3-29-d977712d48a0/RFns3/mcs7_550.pkl"));
+     len1load = PyObject_CallObject(jblen1load, file1args);
+     file2args = PyTuple_Pack(1, PyString_FromString((char*)"/home/antfbk/NS3/repos/ns-3-allinone/ns-3-29-d977712d48a0/RFns3/mcs7_1024.pkl"));
+     len2load = PyObject_CallObject(jblen1load, file2args);
+     file3args = PyTuple_Pack(1, PyString_FromString((char*)"/home/antfbk/NS3/repos/ns-3-allinone/ns-3-29-d977712d48a0/RFns3/mcs7_2048.pkl"));
+     len3load = PyObject_CallObject(jblen1load, file3args);
+     file4args = PyTuple_Pack(1, PyString_FromString((char*)"/home/antfbk/NS3/repos/ns-3-allinone/ns-3-29-d977712d48a0/RFns3/mcs7_3839.pkl"));
+     len4load = PyObject_CallObject(jblen1load, file4args);
+
+     for(expit = mcs7agglengthexpth.begin(); expit != mcs7agglengthexpth.end(); expit++)
+     {
+       if(expit->first == 550)
+       {
+         testobj = PyObject_Repr(PyObject_GetItem(PyObject_CallObject(PyObject_GetAttrString(len1load, (char*)"predict"),PyTuple_Pack(1,xtest)), PyLong_FromLong(0)));
+         char* mcs7sa550 = PyString_AsString(testobj);
+         expected_th =  atof(mcs7sa550);
+         //std::cout<<"Expected Th:"<<expected_th<<"\n";
+         expit->second = expected_th;
+       }
+
+       if(expit->first == 1024)
+       {
+         testobj = PyObject_Repr(PyObject_GetItem(PyObject_CallObject(PyObject_GetAttrString(len2load, (char*)"predict"),PyTuple_Pack(1,xtest)), PyLong_FromLong(0)));
+         char* mcs7sa1024 = PyString_AsString(testobj);
+         expected_th =  atof(mcs7sa1024);
+         //std::cout<<"Expected Th:"<<expected_th<<"\n";
+         expit->second = expected_th;
+       }
+
+       if(expit->first == 2048)
+       {
+         testobj = PyObject_Repr(PyObject_GetItem(PyObject_CallObject(PyObject_GetAttrString(len3load, (char*)"predict"),PyTuple_Pack(1,xtest)), PyLong_FromLong(0)));
+         char* mcs7sa2048 = PyString_AsString(testobj);
+         expected_th =  atof(mcs7sa2048);
+         //std::cout<<"Expected Th:"<<expected_th<<"\n";
+         expit->second = expected_th;
+       }
+
+       if(expit->first == 3839)
+       {
+         testobj = PyObject_Repr(PyObject_GetItem(PyObject_CallObject(PyObject_GetAttrString(len4load, (char*)"predict"),PyTuple_Pack(1,xtest)), PyLong_FromLong(0)));
+         char* mcs7sa3839 = PyString_AsString(testobj);
+         expected_th =  atof(mcs7sa3839);
+         //std::cout<<"Expected Th 3839:"<<expected_th<<"\n";
+         expit->second = expected_th;
+       }
+     }
+     genagglengthexpth = mcs7agglengthexpth;
+  }
+
+  uint last_counter=0;
+  float highestexp = 0;
+  int highexpagglength = 0;
+  std::map<int, float>::iterator genit;
+  for(genit = genagglengthexpth.begin(); genit != genagglengthexpth.end(); genit++)
+  {
+    if (highestexp < genit->second)
+    {
+      highestexp = genit->second;
+      //std::cout<<"HIGHEST EXP_TH:"<<highestexp<<"\n";
+      highexpagglength = genit->first;
+    }
+
+  }
+
+  // previousaggregationlengthperstation is used
+  previousaggregationlengthperstation = MsduAggregator::getamsdusizeperstation();
+  if (!previous_statistics[stadd])
+  {
+      previous_statistics[stadd] = (historical_bytes[stadd]-previous_historical_bytes[stadd])/(1024*1024);
+  }
+  else
+  {
+    second_statistics[stadd] = previous_statistics[stadd];
+    previous_statistics[stadd] = (historical_bytes[stadd]-previous_historical_bytes[stadd])/(1024*1024);
+
+    if (previousaggregationlengthperstation[stadd] != highexpagglength)
+    {
+      last_counter = 0;
+    }
+    else
+    {
+      last_counter+=1;
+    }
+    if ((second_statistics[stadd] - previous_statistics[stadd])/second_statistics[stadd] < -0.15 && previousaggregationlengthperstation[stadd] != highexpagglength)
+    {
+
+      if(bannedagglengthcounterperstation[stadd][agglengthtoindexmap[previousaggregationlengthperstation[stadd]]] == 0)
+      {
+        std::cout<<"\n";
+        bannedagglengthcounterperstation[stadd][agglengthtoindexmap[previousaggregationlengthperstation[stadd]]] = 10;
+
+      }
+      else
+      {
+        bannedagglengthcounterperstation[stadd][agglengthtoindexmap[previousaggregationlengthperstation[stadd]]] += 10;
+      }
+        //.. check if banned has the length
+      //else{}
+    }
+
+    if((previous_statistics[stadd] - second_statistics[stadd])/previous_statistics[stadd] < -0.15 && previousaggregationlengthperstation[stadd] != highexpagglength)
+    {
+      if(bannedagglengthcounterperstation[stadd][agglengthtoindexmap[highexpagglength]] == 0)
+      {
+        std::cout<<"\n";
+        bannedagglengthcounterperstation[stadd][agglengthtoindexmap[highexpagglength]] = 10;
+
+      }
+      else
+      {
+        bannedagglengthcounterperstation[stadd][agglengthtoindexmap[highexpagglength]] += 10;
+      }
+    }
+  }
+
+
+  uint sm_counter = 0;
+  std::map<int, float>::iterator afterbanit;
+  for(afterbanit = genagglengthexpth.begin(); afterbanit != genagglengthexpth.end(); afterbanit++)
+  {
+    sm_counter = bannedagglengthcounterperstation[stadd][agglengthtoindexmap[afterbanit->first]];
+    if (sm_counter != 0)
+    {
+      afterbanit->second = (afterbanit->second)-((afterbanit->second)*sm_counter/100);
+    }
+
+    if(bannedagglengthcounterperstation[stadd][agglengthtoindexmap[highexpagglength]] > 0 || last_counter >=5)
+    {
+      bannedagglengthcounterperstation[stadd][agglengthtoindexmap[highexpagglength]]--;
+
+    }
+    else
+    {
+      if (highestexp < afterbanit->second)
+      {
+        highestexp = afterbanit->second;
+        highexpagglength = afterbanit->first;
+        if (previousaggregationlengthperstation[stadd] != highexpagglength)
+        {
+          last_counter = 0;
+        }
+      }
+    }
+  }
+
+
+
+
+  Py_DECREF(len1load);
+  Py_DECREF(len2load);
+  Py_DECREF(len3load);
+  Py_DECREF(len4load);
+  Py_DECREF(file1args);
+  Py_DECREF(file2args);
+  Py_DECREF(file3args);
+  Py_DECREF(file4args);
+  Py_DECREF(testobj);
+  //PyList_SET_ITEM(listObj, 2, PyFloat_FromDouble(double(mcsva)));
+  /*PyRun_SimpleString("from time import time,ctime\n"
+                     "print 'Today is',ctime(time())\n");*/
+  //Py_XDECREF(listObj);
+
+  Py_DECREF(xdata);
+  Py_DECREF(xdatatup);
+  //Py_DECREF(objectsRepresentation);
+  Py_DECREF(xfeatures);
+  Py_DECREF(pModulepd);
+  Py_DECREF(pFuncpd);
+  Py_DECREF(args);
+  Py_DECREF(keywords);
+  Py_DECREF(xtest);
+  Py_DECREF(jblen1load);
+  //std::cout<<"HIGHEST EXP_TH:"<<highestexp<<"\n";
+  //std::cout<<"The expected throughput is "<<highestexp<<" for aggregation length:"<<highexpagglength<<"\n";
+  return std::make_tuple(highexpagglength,highestexp);
+}
+  //Py_Finalize();// this would render the interpreter uesless! hence sigsegv
+  return std::make_tuple(0,0);
+}
+
+//compare last and current mcs rfr ns3
+int MinstrelHtWifiManager::comparelastandcurrentrfrns3 (float succratio, float gcu, uint16_t currmcs, uint16_t lastmcs, Mac48Address stadd)
+{
+  float difference;
+  float agglength = 0;
+
+  //only the exp_th values
+  difference = (std::get<1>(rfrmodelns3(succratio, gcu, currmcs, stadd)) - std::get<1>(rfrmodelns3(succratio, gcu, lastmcs, stadd)))/std::get<1>(rfrmodelns3(succratio, gcu, lastmcs, stadd));
+  std::cout<<"At the station MAC:"<<stadd<<" the current expected throughput is "<<std::get<1>(rfrmodelns3(succratio, gcu, currmcs, stadd))<<" the last expected throughput is "<<std::get<1>(rfrmodelns3(succratio, gcu, lastmcs, stadd))<< "\n";
+  if (difference < 0.05)
+  {
+    //derive agg length
+    //std::cout<<"ad";
+    agglength = std::get<0>(rfrmodelns3(succratio, gcu, lastmcs, stadd));
+  }
+  else
+  {
+    //std::cout<<"ad";
+    agglength = std::get<0>(rfrmodelns3(succratio, gcu, currmcs, stadd));
+  }
+
+
+  return agglength;
+}
+
 
 
 ////M5P model for ns3
@@ -3895,5 +4513,622 @@ int MinstrelHtWifiManager::comparelastandcurrentplatform (float succratio, float
     return agglength;
   }
 
+  ////RFR model for ns3
+  std::tuple<int, float> MinstrelHtWifiManager::rfrmodelplatform (float succratio, float gcu, float lastattemptbytes, float minstrel_th, uint16_t mcsvalue, Mac48Address stadd)
+  {
+    float expected_th = 0;
+    std::map<int,float> ::iterator expit;
+
+    if (!isnan(succratio))
+  {
+    PyObject *len1load, *len2load, *len3load, *len4load,*file1args, *file2args, *file3args, *file4args;
+    Py_Initialize();
+    //std::cout<<"before imprt\n";
+    PyRun_SimpleString("from sklearn.externals import joblib\n"
+                       "import pandas\n"
+                       "import os\n");//pickle and joblib gives the
+
+    PyObject* xdata = PyList_New(4);
+    PyList_SET_ITEM(xdata, 0, PyFloat_FromDouble(double(minstrel_th)));
+    PyList_SET_ITEM(xdata, 1, PyFloat_FromDouble(double(lastattemptbytes)));
+    PyList_SET_ITEM(xdata, 2, PyFloat_FromDouble(double(succratio)));
+    PyList_SET_ITEM(xdata, 3, PyFloat_FromDouble(double(gcu)));
+    PyObject* xdatatup = PyList_New(1);
+    PyList_SET_ITEM(xdatatup, 0, xdata);
+    //PyObject* objectsRepresentation = PyObject_Repr(xdatatup);
+    //const char* s = PyString_AsString(objectsRepresentation);
+    //std::cout<<"xdatatup:"<<s<<"\n";
+    PyObject* xfeatures = PyList_New(4);
+    PyList_SET_ITEM(xfeatures, 0, PyString_FromString("Mins_Th"));
+    PyList_SET_ITEM(xfeatures, 1, PyString_FromString("Last_Att_Bytes"));
+    PyList_SET_ITEM(xfeatures, 2, PyString_FromString("SUCCRATIO"));
+    PyList_SET_ITEM(xfeatures, 3, PyString_FromString("Gcu"));
+
+    //std::cout<<"xdta size:"<<PyTuple_GET_SIZE(xdata)<<"\n";
+    PyObject* pModulepd = PyImport_Import(PyString_FromString((char*)"pandas"));
+    PyObject* pFuncpd = PyObject_GetAttrString(pModulepd, (char*)"DataFrame");
+    PyObject* args = PyTuple_Pack(1, xdatatup);
+    PyObject *keywords = PyDict_New();
+    PyDict_SetItemString(keywords, "columns", xfeatures);
+    PyObject* xtest = PyObject_Call(pFuncpd, args, keywords);
+    PyObject* jblen1load = PyObject_GetAttrString(PyImport_Import(PyString_FromString((char*)"sklearn.externals.joblib")), (char*)"load");
+    PyObject* testobj;
+
+    /*PyObject* fileargs = PyTuple_Pack(1, PyString_FromString((char*)"/home/antfbk/NS3/repos/ns-3-allinone/ns-3-29-d977712d48a0/RFns3/mcs0_550.pkl"));
+    PyObject* lenload = PyObject_CallObject(jblen1load, fileargs);
+    std::cout<<lenload<<" end\n";*/
+    /*PyRun_SimpleString( "file = open('/home/antfbk/NS3/repos/ns-3-allinone/ns-3-29-d977712d48a0/RFns3/mcs0_1024.pkl','rb')\n"
+                        "x=joblib.load('/home/antfbk/NS3/repos/ns-3-allinone/ns-3-29-d977712d48a0/RFns3/mcs0_1024.pkl')\n"//file is not found//pickle.load is loaded wth rght file name
+                        "file.close()\n"
+                        "print(x)\n");*///only joblib refcount
+    //std::cout<<"PVALUE:"<<f<<"\n";
+    if (mcsvalue == 0)
+    {
+      //PyObject* jblen1mod = PyImport_Import(PyString_FromString((char*)"pandas"));
+       file1args = PyTuple_Pack(1, PyString_FromString((char*)"/home/antfbk/NS3/repos/ns-3-allinone/ns-3-29-d977712d48a0/RFplatform/mcs0_550.pkl"));
+       len1load = PyObject_CallObject(jblen1load, file1args);
+       file2args = PyTuple_Pack(1, PyString_FromString((char*)"/home/antfbk/NS3/repos/ns-3-allinone/ns-3-29-d977712d48a0/RFplatform/mcs0_1024.pkl"));
+       len2load = PyObject_CallObject(jblen1load, file2args);
+       file3args = PyTuple_Pack(1, PyString_FromString((char*)"/home/antfbk/NS3/repos/ns-3-allinone/ns-3-29-d977712d48a0/RFplatform/mcs0_2048.pkl"));
+       len3load = PyObject_CallObject(jblen1load, file3args);
+       file4args = PyTuple_Pack(1, PyString_FromString((char*)"/home/antfbk/NS3/repos/ns-3-allinone/ns-3-29-d977712d48a0/RFplatform/mcs0_3839.pkl"));
+       len4load = PyObject_CallObject(jblen1load, file4args);
+
+       for(expit = mcs0agglengthexpth.begin(); expit != mcs0agglengthexpth.end(); expit++)
+       {
+         if(expit->first == 550)
+         {
+           testobj = PyObject_Repr(PyObject_GetItem(PyObject_CallObject(PyObject_GetAttrString(len1load, (char*)"predict"),PyTuple_Pack(1,xtest)), PyLong_FromLong(0)));
+           char* mcs0sa550 = PyString_AsString(testobj);
+           expected_th =  atof(mcs0sa550);
+           //std::cout<<"Expected Th:"<<expected_th<<"\n";
+           expit->second = expected_th;
+         }
+
+         if(expit->first == 1024)
+         {
+           testobj = PyObject_Repr(PyObject_GetItem(PyObject_CallObject(PyObject_GetAttrString(len2load, (char*)"predict"),PyTuple_Pack(1,xtest)), PyLong_FromLong(0)));
+           char* mcs0sa1024 = PyString_AsString(testobj);
+           expected_th =  atof(mcs0sa1024);
+           //std::cout<<"Expected Th:"<<expected_th<<"\n";
+           expit->second = expected_th;
+         }
+
+         if(expit->first == 2048)
+         {
+           testobj = PyObject_Repr(PyObject_GetItem(PyObject_CallObject(PyObject_GetAttrString(len3load, (char*)"predict"),PyTuple_Pack(1,xtest)), PyLong_FromLong(0)));
+           char* mcs0sa2048 = PyString_AsString(testobj);
+           expected_th =  atof(mcs0sa2048);
+           //std::cout<<"Expected Th:"<<expected_th<<"\n";
+           expit->second = expected_th;
+         }
+
+         if(expit->first == 3839)
+         {
+           testobj = PyObject_Repr(PyObject_GetItem(PyObject_CallObject(PyObject_GetAttrString(len4load, (char*)"predict"),PyTuple_Pack(1,xtest)), PyLong_FromLong(0)));
+           char* mcs0sa3839 = PyString_AsString(testobj);
+           expected_th =  atof(mcs0sa3839);
+           //std::cout<<"Expected Th:"<<expected_th<<"\n";
+           expit->second = expected_th;
+         }
+       }
+       genagglengthexpth = mcs0agglengthexpth;
+    }
+
+    if (mcsvalue == 1)
+    {
+       file1args = PyTuple_Pack(1, PyString_FromString((char*)"/home/antfbk/NS3/repos/ns-3-allinone/ns-3-29-d977712d48a0/RFplatform/mcs1_550.pkl"));
+       len1load = PyObject_CallObject(jblen1load, file1args);
+       file2args = PyTuple_Pack(1, PyString_FromString((char*)"/home/antfbk/NS3/repos/ns-3-allinone/ns-3-29-d977712d48a0/RFplatform/mcs1_1024.pkl"));
+       len2load = PyObject_CallObject(jblen1load, file2args);
+       file3args = PyTuple_Pack(1, PyString_FromString((char*)"/home/antfbk/NS3/repos/ns-3-allinone/ns-3-29-d977712d48a0/RFplatform/mcs1_2048.pkl"));
+       len3load = PyObject_CallObject(jblen1load, file3args);
+       file4args = PyTuple_Pack(1, PyString_FromString((char*)"/home/antfbk/NS3/repos/ns-3-allinone/ns-3-29-d977712d48a0/RFplatform/mcs1_3839.pkl"));
+       len4load = PyObject_CallObject(jblen1load, file4args);
+
+       for(expit = mcs1agglengthexpth.begin(); expit != mcs1agglengthexpth.end(); expit++)
+       {
+         if(expit->first == 550)
+         {
+           testobj = PyObject_Repr(PyObject_GetItem(PyObject_CallObject(PyObject_GetAttrString(len1load, (char*)"predict"),PyTuple_Pack(1,xtest)), PyLong_FromLong(0)));
+           char* mcs1sa550 = PyString_AsString(testobj);
+           expected_th =  atof(mcs1sa550);
+           //std::cout<<"Expected Th:"<<expected_th<<"\n";
+           expit->second = expected_th;
+         }
+
+         if(expit->first == 1024)
+         {
+           testobj = PyObject_Repr(PyObject_GetItem(PyObject_CallObject(PyObject_GetAttrString(len2load, (char*)"predict"),PyTuple_Pack(1,xtest)), PyLong_FromLong(0)));
+           char* mcs1sa1024 = PyString_AsString(testobj);
+           expected_th =  atof(mcs1sa1024);
+           //std::cout<<"Expected Th:"<<expected_th<<"\n";
+           expit->second = expected_th;
+         }
+
+         if(expit->first == 2048)
+         {
+           testobj = PyObject_Repr(PyObject_GetItem(PyObject_CallObject(PyObject_GetAttrString(len3load, (char*)"predict"),PyTuple_Pack(1,xtest)), PyLong_FromLong(0)));
+           char* mcs1sa2048 = PyString_AsString(testobj);
+           expected_th =  atof(mcs1sa2048);
+           //std::cout<<"Expected Th:"<<expected_th<<"\n";
+           expit->second = expected_th;
+         }
+
+         if(expit->first == 3839)
+         {
+           testobj = PyObject_Repr(PyObject_GetItem(PyObject_CallObject(PyObject_GetAttrString(len4load, (char*)"predict"),PyTuple_Pack(1,xtest)), PyLong_FromLong(0)));
+           char* mcs1sa3839 = PyString_AsString(testobj);
+           expected_th =  atof(mcs1sa3839);
+           //std::cout<<"Expected Th:"<<expected_th<<"\n";
+           expit->second = expected_th;
+         }
+       }
+       genagglengthexpth = mcs1agglengthexpth;
+    }
+
+    if (mcsvalue == 2)
+    {
+       file1args = PyTuple_Pack(1, PyString_FromString((char*)"/home/antfbk/NS3/repos/ns-3-allinone/ns-3-29-d977712d48a0/RFplatform/mcs2_550.pkl"));
+       len1load = PyObject_CallObject(jblen1load, file1args);
+       file2args = PyTuple_Pack(1, PyString_FromString((char*)"/home/antfbk/NS3/repos/ns-3-allinone/ns-3-29-d977712d48a0/RFplatform/mcs2_1024.pkl"));
+       len2load = PyObject_CallObject(jblen1load, file2args);
+       file3args = PyTuple_Pack(1, PyString_FromString((char*)"/home/antfbk/NS3/repos/ns-3-allinone/ns-3-29-d977712d48a0/RFplatform/mcs2_2048.pkl"));
+       len3load = PyObject_CallObject(jblen1load, file3args);
+       file4args = PyTuple_Pack(1, PyString_FromString((char*)"/home/antfbk/NS3/repos/ns-3-allinone/ns-3-29-d977712d48a0/RFplatform/mcs2_3839.pkl"));
+       len4load = PyObject_CallObject(jblen1load, file4args);
+
+       for(expit = mcs2agglengthexpth.begin(); expit != mcs2agglengthexpth.end(); expit++)
+       {
+         if(expit->first == 550)
+         {
+           testobj = PyObject_Repr(PyObject_GetItem(PyObject_CallObject(PyObject_GetAttrString(len1load, (char*)"predict"),PyTuple_Pack(1,xtest)), PyLong_FromLong(0)));
+           char* mcs2sa550 = PyString_AsString(testobj);
+           expected_th =  atof(mcs2sa550);
+           //std::cout<<"Expected Th:"<<expected_th<<"\n";
+           expit->second = expected_th;
+         }
+
+         if(expit->first == 1024)
+         {
+           testobj = PyObject_Repr(PyObject_GetItem(PyObject_CallObject(PyObject_GetAttrString(len2load, (char*)"predict"),PyTuple_Pack(1,xtest)), PyLong_FromLong(0)));
+           char* mcs2sa1024 = PyString_AsString(testobj);
+           expected_th =  atof(mcs2sa1024);
+           //std::cout<<"Expected Th:"<<expected_th<<"\n";
+           expit->second = expected_th;
+         }
+
+         if(expit->first == 2048)
+         {
+           testobj = PyObject_Repr(PyObject_GetItem(PyObject_CallObject(PyObject_GetAttrString(len3load, (char*)"predict"),PyTuple_Pack(1,xtest)), PyLong_FromLong(0)));
+           char* mcs2sa2048 = PyString_AsString(testobj);
+           expected_th =  atof(mcs2sa2048);
+           //std::cout<<"Expected Th:"<<expected_th<<"\n";
+           expit->second = expected_th;
+         }
+
+         if(expit->first == 3839)
+         {
+           testobj = PyObject_Repr(PyObject_GetItem(PyObject_CallObject(PyObject_GetAttrString(len4load, (char*)"predict"),PyTuple_Pack(1,xtest)), PyLong_FromLong(0)));
+           char* mcs2sa3839 = PyString_AsString(testobj);
+           expected_th =  atof(mcs2sa3839);
+           //std::cout<<"Expected Th:"<<expected_th<<"\n";
+           expit->second = expected_th;
+         }
+       }
+       genagglengthexpth = mcs2agglengthexpth;
+    }
+
+    if (mcsvalue == 3)
+    {
+       file1args = PyTuple_Pack(1, PyString_FromString((char*)"/home/antfbk/NS3/repos/ns-3-allinone/ns-3-29-d977712d48a0/RFplatform/mcs3_550.pkl"));
+       len1load = PyObject_CallObject(jblen1load, file1args);
+       file2args = PyTuple_Pack(1, PyString_FromString((char*)"/home/antfbk/NS3/repos/ns-3-allinone/ns-3-29-d977712d48a0/RFplatform/mcs3_1024.pkl"));
+       len2load = PyObject_CallObject(jblen1load, file2args);
+       file3args = PyTuple_Pack(1, PyString_FromString((char*)"/home/antfbk/NS3/repos/ns-3-allinone/ns-3-29-d977712d48a0/RFplatform/mcs3_2048.pkl"));
+       len3load = PyObject_CallObject(jblen1load, file3args);
+       file4args = PyTuple_Pack(1, PyString_FromString((char*)"/home/antfbk/NS3/repos/ns-3-allinone/ns-3-29-d977712d48a0/RFplatform/mcs3_3839.pkl"));
+       len4load = PyObject_CallObject(jblen1load, file4args);
+
+       for(expit = mcs3agglengthexpth.begin(); expit != mcs3agglengthexpth.end(); expit++)
+       {
+         if(expit->first == 550)
+         {
+           testobj = PyObject_Repr(PyObject_GetItem(PyObject_CallObject(PyObject_GetAttrString(len1load, (char*)"predict"),PyTuple_Pack(1,xtest)), PyLong_FromLong(0)));
+           char* mcs3sa550 = PyString_AsString(testobj);
+           expected_th =  atof(mcs3sa550);
+           //std::cout<<"Expected Th:"<<expected_th<<"\n";
+           expit->second = expected_th;
+         }
+
+         if(expit->first == 1024)
+         {
+           testobj = PyObject_Repr(PyObject_GetItem(PyObject_CallObject(PyObject_GetAttrString(len2load, (char*)"predict"),PyTuple_Pack(1,xtest)), PyLong_FromLong(0)));
+           char* mcs3sa1024 = PyString_AsString(testobj);
+           expected_th =  atof(mcs3sa1024);
+           //std::cout<<"Expected Th:"<<expected_th<<"\n";
+           expit->second = expected_th;
+         }
+
+         if(expit->first == 2048)
+         {
+           testobj = PyObject_Repr(PyObject_GetItem(PyObject_CallObject(PyObject_GetAttrString(len3load, (char*)"predict"),PyTuple_Pack(1,xtest)), PyLong_FromLong(0)));
+           char* mcs3sa2048 = PyString_AsString(testobj);
+           expected_th =  atof(mcs3sa2048);
+           //std::cout<<"Expected Th:"<<expected_th<<"\n";
+           expit->second = expected_th;
+         }
+
+         if(expit->first == 3839)
+         {
+           testobj = PyObject_Repr(PyObject_GetItem(PyObject_CallObject(PyObject_GetAttrString(len4load, (char*)"predict"),PyTuple_Pack(1,xtest)), PyLong_FromLong(0)));
+           char* mcs3sa3839 = PyString_AsString(testobj);
+           expected_th =  atof(mcs3sa3839);
+           //std::cout<<"Expected Th:"<<expected_th<<"\n";
+           expit->second = expected_th;
+         }
+       }
+       genagglengthexpth = mcs3agglengthexpth;
+    }
+    if (mcsvalue == 4)
+    {
+       file1args = PyTuple_Pack(1, PyString_FromString((char*)"/home/antfbk/NS3/repos/ns-3-allinone/ns-3-29-d977712d48a0/RFplatform/mcs4_550.pkl"));
+       len1load = PyObject_CallObject(jblen1load, file1args);
+       file2args = PyTuple_Pack(1, PyString_FromString((char*)"/home/antfbk/NS3/repos/ns-3-allinone/ns-3-29-d977712d48a0/RFplatform/mcs4_1024.pkl"));
+       len2load = PyObject_CallObject(jblen1load, file2args);
+       file3args = PyTuple_Pack(1, PyString_FromString((char*)"/home/antfbk/NS3/repos/ns-3-allinone/ns-3-29-d977712d48a0/RFplatform/mcs4_2048.pkl"));
+       len3load = PyObject_CallObject(jblen1load, file3args);
+       file4args = PyTuple_Pack(1, PyString_FromString((char*)"/home/antfbk/NS3/repos/ns-3-allinone/ns-3-29-d977712d48a0/RFplatform/mcs4_3839.pkl"));
+       len4load = PyObject_CallObject(jblen1load, file4args);
+
+       for(expit = mcs4agglengthexpth.begin(); expit != mcs4agglengthexpth.end(); expit++)
+       {
+         if(expit->first == 550)
+         {
+           testobj = PyObject_Repr(PyObject_GetItem(PyObject_CallObject(PyObject_GetAttrString(len1load, (char*)"predict"),PyTuple_Pack(1,xtest)), PyLong_FromLong(0)));
+           char* mcs4sa550 = PyString_AsString(testobj);
+           expected_th =  atof(mcs4sa550);
+           //std::cout<<"Expected Th:"<<expected_th<<"\n";
+           expit->second = expected_th;
+         }
+
+         if(expit->first == 1024)
+         {
+           testobj = PyObject_Repr(PyObject_GetItem(PyObject_CallObject(PyObject_GetAttrString(len2load, (char*)"predict"),PyTuple_Pack(1,xtest)), PyLong_FromLong(0)));
+           char* mcs4sa1024 = PyString_AsString(testobj);
+           expected_th =  atof(mcs4sa1024);
+           //std::cout<<"Expected Th:"<<expected_th<<"\n";
+           expit->second = expected_th;
+         }
+
+         if(expit->first == 2048)
+         {
+           testobj = PyObject_Repr(PyObject_GetItem(PyObject_CallObject(PyObject_GetAttrString(len3load, (char*)"predict"),PyTuple_Pack(1,xtest)), PyLong_FromLong(0)));
+           char* mcs4sa2048 = PyString_AsString(testobj);
+           expected_th =  atof(mcs4sa2048);
+           //std::cout<<"Expected Th:"<<expected_th<<"\n";
+           expit->second = expected_th;
+         }
+
+         if(expit->first == 3839)
+         {
+           testobj = PyObject_Repr(PyObject_GetItem(PyObject_CallObject(PyObject_GetAttrString(len4load, (char*)"predict"),PyTuple_Pack(1,xtest)), PyLong_FromLong(0)));
+           char* mcs4sa3839 = PyString_AsString(testobj);
+           expected_th =  atof(mcs4sa3839);
+           //std::cout<<"Expected Th:"<<expected_th<<"\n";
+           expit->second = expected_th;
+         }
+       }
+       genagglengthexpth = mcs4agglengthexpth;
+    }
+    if (mcsvalue == 5)
+    {
+       file1args = PyTuple_Pack(1, PyString_FromString((char*)"/home/antfbk/NS3/repos/ns-3-allinone/ns-3-29-d977712d48a0/RFplatform/mcs5_550.pkl"));
+       len1load = PyObject_CallObject(jblen1load, file1args);
+       file2args = PyTuple_Pack(1, PyString_FromString((char*)"/home/antfbk/NS3/repos/ns-3-allinone/ns-3-29-d977712d48a0/RFplatform/mcs5_1024.pkl"));
+       len2load = PyObject_CallObject(jblen1load, file2args);
+       file3args = PyTuple_Pack(1, PyString_FromString((char*)"/home/antfbk/NS3/repos/ns-3-allinone/ns-3-29-d977712d48a0/RFplatform/mcs5_2048.pkl"));
+       len3load = PyObject_CallObject(jblen1load, file3args);
+       file4args = PyTuple_Pack(1, PyString_FromString((char*)"/home/antfbk/NS3/repos/ns-3-allinone/ns-3-29-d977712d48a0/RFplatform/mcs5_3839.pkl"));
+       len4load = PyObject_CallObject(jblen1load, file4args);
+
+       for(expit = mcs5agglengthexpth.begin(); expit != mcs5agglengthexpth.end(); expit++)
+       {
+         if(expit->first == 550)
+         {
+           testobj = PyObject_Repr(PyObject_GetItem(PyObject_CallObject(PyObject_GetAttrString(len1load, (char*)"predict"),PyTuple_Pack(1,xtest)), PyLong_FromLong(0)));
+           char* mcs5sa550 = PyString_AsString(testobj);
+           expected_th =  atof(mcs5sa550);
+           //std::cout<<"Expected Th:"<<expected_th<<"\n";
+           expit->second = expected_th;
+         }
+
+         if(expit->first == 1024)
+         {
+           testobj = PyObject_Repr(PyObject_GetItem(PyObject_CallObject(PyObject_GetAttrString(len2load, (char*)"predict"),PyTuple_Pack(1,xtest)), PyLong_FromLong(0)));
+           char* mcs5sa1024 = PyString_AsString(testobj);
+           expected_th =  atof(mcs5sa1024);
+           //std::cout<<"Expected Th:"<<expected_th<<"\n";
+           expit->second = expected_th;
+         }
+
+         if(expit->first == 2048)
+         {
+           testobj = PyObject_Repr(PyObject_GetItem(PyObject_CallObject(PyObject_GetAttrString(len3load, (char*)"predict"),PyTuple_Pack(1,xtest)), PyLong_FromLong(0)));
+           char* mcs5sa2048 = PyString_AsString(testobj);
+           expected_th =  atof(mcs5sa2048);
+           //std::cout<<"Expected Th:"<<expected_th<<"\n";
+           expit->second = expected_th;
+         }
+
+         if(expit->first == 3839)
+         {
+           testobj = PyObject_Repr(PyObject_GetItem(PyObject_CallObject(PyObject_GetAttrString(len4load, (char*)"predict"),PyTuple_Pack(1,xtest)), PyLong_FromLong(0)));
+           char* mcs5sa3839 = PyString_AsString(testobj);
+           expected_th =  atof(mcs5sa3839);
+           //std::cout<<"Expected Th:"<<expected_th<<"\n";
+           expit->second = expected_th;
+         }
+       }
+       genagglengthexpth = mcs5agglengthexpth;
+    }
+    if (mcsvalue == 6)
+    {
+       file1args = PyTuple_Pack(1, PyString_FromString((char*)"/home/antfbk/NS3/repos/ns-3-allinone/ns-3-29-d977712d48a0/RFplatform/mcs6_550.pkl"));
+       len1load = PyObject_CallObject(jblen1load, file1args);
+       file2args = PyTuple_Pack(1, PyString_FromString((char*)"/home/antfbk/NS3/repos/ns-3-allinone/ns-3-29-d977712d48a0/RFplatform/mcs6_1024.pkl"));
+       len2load = PyObject_CallObject(jblen1load, file2args);
+       file3args = PyTuple_Pack(1, PyString_FromString((char*)"/home/antfbk/NS3/repos/ns-3-allinone/ns-3-29-d977712d48a0/RFplatform/mcs6_2048.pkl"));
+       len3load = PyObject_CallObject(jblen1load, file3args);
+       file4args = PyTuple_Pack(1, PyString_FromString((char*)"/home/antfbk/NS3/repos/ns-3-allinone/ns-3-29-d977712d48a0/RFplatform/mcs6_3839.pkl"));
+       len4load = PyObject_CallObject(jblen1load, file4args);
+
+       for(expit = mcs6agglengthexpth.begin(); expit != mcs6agglengthexpth.end(); expit++)
+       {
+         if(expit->first == 550)
+         {
+           testobj = PyObject_Repr(PyObject_GetItem(PyObject_CallObject(PyObject_GetAttrString(len1load, (char*)"predict"),PyTuple_Pack(1,xtest)), PyLong_FromLong(0)));
+           char* mcs6sa550 = PyString_AsString(testobj);
+           expected_th =  atof(mcs6sa550);
+           //std::cout<<"Expected Th:"<<expected_th<<"\n";
+           expit->second = expected_th;
+         }
+
+         if(expit->first == 1024)
+         {
+           testobj = PyObject_Repr(PyObject_GetItem(PyObject_CallObject(PyObject_GetAttrString(len2load, (char*)"predict"),PyTuple_Pack(1,xtest)), PyLong_FromLong(0)));
+           char* mcs6sa1024 = PyString_AsString(testobj);
+           expected_th =  atof(mcs6sa1024);
+           //std::cout<<"Expected Th:"<<expected_th<<"\n";
+           expit->second = expected_th;
+         }
+
+         if(expit->first == 2048)
+         {
+           testobj = PyObject_Repr(PyObject_GetItem(PyObject_CallObject(PyObject_GetAttrString(len3load, (char*)"predict"),PyTuple_Pack(1,xtest)), PyLong_FromLong(0)));
+           char* mcs6sa2048 = PyString_AsString(testobj);
+           expected_th =  atof(mcs6sa2048);
+           //std::cout<<"Expected Th:"<<expected_th<<"\n";
+           expit->second = expected_th;
+         }
+
+         if(expit->first == 3839)
+         {
+           testobj = PyObject_Repr(PyObject_GetItem(PyObject_CallObject(PyObject_GetAttrString(len4load, (char*)"predict"),PyTuple_Pack(1,xtest)), PyLong_FromLong(0)));
+           char* mcs6sa3839 = PyString_AsString(testobj);
+           expected_th =  atof(mcs6sa3839);
+           //std::cout<<"Expected Th:"<<expected_th<<"\n";
+           expit->second = expected_th;
+         }
+       }
+       genagglengthexpth = mcs6agglengthexpth;
+    }
+    if (mcsvalue == 7)
+    {
+       file1args = PyTuple_Pack(1, PyString_FromString((char*)"/home/antfbk/NS3/repos/ns-3-allinone/ns-3-29-d977712d48a0/RFplatform/mcs7_550.pkl"));
+       len1load = PyObject_CallObject(jblen1load, file1args);
+       file2args = PyTuple_Pack(1, PyString_FromString((char*)"/home/antfbk/NS3/repos/ns-3-allinone/ns-3-29-d977712d48a0/RFplatform/mcs7_1024.pkl"));
+       len2load = PyObject_CallObject(jblen1load, file2args);
+       file3args = PyTuple_Pack(1, PyString_FromString((char*)"/home/antfbk/NS3/repos/ns-3-allinone/ns-3-29-d977712d48a0/RFplatform/mcs7_2048.pkl"));
+       len3load = PyObject_CallObject(jblen1load, file3args);
+       file4args = PyTuple_Pack(1, PyString_FromString((char*)"/home/antfbk/NS3/repos/ns-3-allinone/ns-3-29-d977712d48a0/RFplatform/mcs7_3839.pkl"));
+       len4load = PyObject_CallObject(jblen1load, file4args);
+
+       for(expit = mcs7agglengthexpth.begin(); expit != mcs7agglengthexpth.end(); expit++)
+       {
+         if(expit->first == 550)
+         {
+           testobj = PyObject_Repr(PyObject_GetItem(PyObject_CallObject(PyObject_GetAttrString(len1load, (char*)"predict"),PyTuple_Pack(1,xtest)), PyLong_FromLong(0)));
+           char* mcs7sa550 = PyString_AsString(testobj);
+           expected_th =  atof(mcs7sa550);
+           //std::cout<<"Expected Th:"<<expected_th<<"\n";
+           expit->second = expected_th;
+         }
+
+         if(expit->first == 1024)
+         {
+           testobj = PyObject_Repr(PyObject_GetItem(PyObject_CallObject(PyObject_GetAttrString(len2load, (char*)"predict"),PyTuple_Pack(1,xtest)), PyLong_FromLong(0)));
+           char* mcs7sa1024 = PyString_AsString(testobj);
+           expected_th =  atof(mcs7sa1024);
+           //std::cout<<"Expected Th:"<<expected_th<<"\n";
+           expit->second = expected_th;
+         }
+
+         if(expit->first == 2048)
+         {
+           testobj = PyObject_Repr(PyObject_GetItem(PyObject_CallObject(PyObject_GetAttrString(len3load, (char*)"predict"),PyTuple_Pack(1,xtest)), PyLong_FromLong(0)));
+           char* mcs7sa2048 = PyString_AsString(testobj);
+           expected_th =  atof(mcs7sa2048);
+           //std::cout<<"Expected Th:"<<expected_th<<"\n";
+           expit->second = expected_th;
+         }
+
+         if(expit->first == 3839)
+         {
+           testobj = PyObject_Repr(PyObject_GetItem(PyObject_CallObject(PyObject_GetAttrString(len4load, (char*)"predict"),PyTuple_Pack(1,xtest)), PyLong_FromLong(0)));
+           char* mcs7sa3839 = PyString_AsString(testobj);
+           expected_th =  atof(mcs7sa3839);
+           //std::cout<<"Expected Th 3839:"<<expected_th<<"\n";
+           expit->second = expected_th;
+         }
+       }
+       genagglengthexpth = mcs7agglengthexpth;
+    }
+
+    uint last_counter=0;
+    float highestexp = 0;
+    int highexpagglength = 0;
+    std::map<int, float>::iterator genit;
+    for(genit = genagglengthexpth.begin(); genit != genagglengthexpth.end(); genit++)
+    {
+      if (highestexp < genit->second)
+      {
+        highestexp = genit->second;
+        //std::cout<<"HIGHEST EXP_TH:"<<highestexp<<"\n";
+        highexpagglength = genit->first;
+      }
+
+    }
+
+    // previousaggregationlengthperstation is used
+    previousaggregationlengthperstation = MsduAggregator::getamsdusizeperstation();
+    if (!previous_statistics[stadd])
+    {
+        previous_statistics[stadd] = (historical_bytes[stadd]-previous_historical_bytes[stadd])/(1024*1024);
+    }
+    else
+    {
+      second_statistics[stadd] = previous_statistics[stadd];
+      previous_statistics[stadd] = (historical_bytes[stadd]-previous_historical_bytes[stadd])/(1024*1024);
+
+      if (previousaggregationlengthperstation[stadd] != highexpagglength)
+      {
+        last_counter = 0;
+      }
+      else
+      {
+        last_counter+=1;
+      }
+      if ((second_statistics[stadd] - previous_statistics[stadd])/second_statistics[stadd] < -0.15 && previousaggregationlengthperstation[stadd] != highexpagglength)
+      {
+
+        if(bannedagglengthcounterperstation[stadd][agglengthtoindexmap[previousaggregationlengthperstation[stadd]]] == 0)
+        {
+          std::cout<<"\n";
+          bannedagglengthcounterperstation[stadd][agglengthtoindexmap[previousaggregationlengthperstation[stadd]]] = 10;
+
+        }
+        else
+        {
+          bannedagglengthcounterperstation[stadd][agglengthtoindexmap[previousaggregationlengthperstation[stadd]]] += 10;
+        }
+          //.. check if banned has the length
+        //else{}
+      }
+
+      if((previous_statistics[stadd] - second_statistics[stadd])/previous_statistics[stadd] < -0.15 && previousaggregationlengthperstation[stadd] != highexpagglength)
+      {
+        if(bannedagglengthcounterperstation[stadd][agglengthtoindexmap[highexpagglength]] == 0)
+        {
+          std::cout<<"\n";
+          bannedagglengthcounterperstation[stadd][agglengthtoindexmap[highexpagglength]] = 10;
+
+        }
+        else
+        {
+          bannedagglengthcounterperstation[stadd][agglengthtoindexmap[highexpagglength]] += 10;
+        }
+      }
+    }
+
+
+    uint sm_counter = 0;
+    std::map<int, float>::iterator afterbanit;
+    for(afterbanit = genagglengthexpth.begin(); afterbanit != genagglengthexpth.end(); afterbanit++)
+    {
+      sm_counter = bannedagglengthcounterperstation[stadd][agglengthtoindexmap[afterbanit->first]];
+      if (sm_counter != 0)
+      {
+        afterbanit->second = (afterbanit->second)-((afterbanit->second)*sm_counter/100);
+      }
+
+      if(bannedagglengthcounterperstation[stadd][agglengthtoindexmap[highexpagglength]] > 0 || last_counter >=5)
+      {
+        bannedagglengthcounterperstation[stadd][agglengthtoindexmap[highexpagglength]]--;
+
+      }
+      else
+      {
+        if (highestexp < afterbanit->second)
+        {
+          highestexp = afterbanit->second;
+          highexpagglength = afterbanit->first;
+          if (previousaggregationlengthperstation[stadd] != highexpagglength)
+          {
+            last_counter = 0;
+          }
+        }
+      }
+    }
+
+
+
+
+    Py_DECREF(len1load);
+    Py_DECREF(len2load);
+    Py_DECREF(len3load);
+    Py_DECREF(len4load);
+    Py_DECREF(file1args);
+    Py_DECREF(file2args);
+    Py_DECREF(file3args);
+    Py_DECREF(file4args);
+    Py_DECREF(testobj);
+    //PyList_SET_ITEM(listObj, 2, PyFloat_FromDouble(double(mcsva)));
+    /*PyRun_SimpleString("from time import time,ctime\n"
+                       "print 'Today is',ctime(time())\n");*/
+    //Py_XDECREF(listObj);
+
+    Py_DECREF(xdata);
+    Py_DECREF(xdatatup);
+    //Py_DECREF(objectsRepresentation);
+    Py_DECREF(xfeatures);
+    Py_DECREF(pModulepd);
+    Py_DECREF(pFuncpd);
+    Py_DECREF(args);
+    Py_DECREF(keywords);
+    Py_DECREF(xtest);
+    Py_DECREF(jblen1load);
+    //std::cout<<"HIGHEST EXP_TH:"<<highestexp<<"\n";
+    //std::cout<<"The expected throughput is "<<highestexp<<" for aggregation length:"<<highexpagglength<<"\n";
+    return std::make_tuple(highexpagglength,highestexp);
+  }
+    //Py_Finalize();// this would render the interpreter uesless! hence sigsegv
+    return std::make_tuple(0,0);
+  }
+
+  //compare last and current mcs rfr platform
+  int MinstrelHtWifiManager::comparelastandcurrentrfrplatform (float succratio, float gcu, float lastattemptbytes, float minstrel_th, uint16_t currmcs, uint16_t lastmcs, Mac48Address stadd)
+    {
+      float difference;
+      float agglength = 0;
+
+      //only the exp_th values
+      difference = (std::get<1>(rfrmodelplatform(succratio, gcu, lastattemptbytes, minstrel_th, currmcs, stadd)) - std::get<1>(rfrmodelplatform(succratio, gcu, lastattemptbytes, minstrel_th, lastmcs, stadd)))/std::get<1>(rfrmodelplatform(succratio, gcu, lastattemptbytes, minstrel_th, lastmcs, stadd));
+      std::cout<<"At the station MAC:"<<stadd<<" the current expected throughput is "<<std::get<1>(rfrmodelplatform(succratio, gcu, lastattemptbytes, minstrel_th, currmcs, stadd))<<" the last expected throughput is "<<std::get<1>(rfrmodelplatform(succratio, gcu, lastattemptbytes, minstrel_th, lastmcs, stadd))<< "\n";
+      if (difference < 0.05)
+      {
+        //derive agg length
+        //std::cout<<"ad";
+        agglength = std::get<0>(rfrmodelplatform(succratio, gcu, lastattemptbytes, minstrel_th, lastmcs, stadd));
+      }
+      else
+      {
+        //std::cout<<"ad";
+        agglength = std::get<0>(rfrmodelplatform(succratio, gcu, lastattemptbytes, minstrel_th, currmcs, stadd));
+      }
+
+
+      return agglength;
+    }
 
 } // namespace ns3
