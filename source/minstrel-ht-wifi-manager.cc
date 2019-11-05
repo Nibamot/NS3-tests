@@ -56,19 +56,21 @@ NS_LOG_COMPONENT_DEFINE ("MinstrelHtWifiManager");
 namespace ns3 {
 
 std::map <uint, float> mcsphyrate = {{0,6.5},{1,13},{2,19.5},{3,26},{4,39},{5,52},{6,58.5},{7,65}};
-std::map <Mac48Address, uint> addresslist = {{Mac48Address("00:00:00:00:00:01"), 0},{Mac48Address("00:00:00:00:00:02"), 0},{Mac48Address("00:00:00:00:00:03"), 0},
-                                                         {Mac48Address("00:00:00:00:00:04"), 0}, {Mac48Address("00:00:00:00:00:05"), 0}, {Mac48Address("00:00:00:00:00:06"), 0},
-                                                         {Mac48Address("00:00:00:00:00:07"), 0}, {Mac48Address("00:00:00:00:00:08"), 0}, {Mac48Address("00:00:00:00:00:09"), 0},
-                                                         {Mac48Address("00:00:00:00:00:0a"), 0}};
-std::map <Mac48Address, uint> addressstamap = {{Mac48Address("00:00:00:00:00:01"), 1},{Mac48Address("00:00:00:00:00:02"), 2},{Mac48Address("00:00:00:00:00:03"), 3},
-                                                                                                                  {Mac48Address("00:00:00:00:00:04"), 4}, {Mac48Address("00:00:00:00:00:05"), 5}, {Mac48Address("00:00:00:00:00:06"), 6},
-                                                                                                                  {Mac48Address("00:00:00:00:00:07"), 7}, {Mac48Address("00:00:00:00:00:08"), 8}, {Mac48Address("00:00:00:00:00:09"), 9},
-                                                                                                                  {Mac48Address("00:00:00:00:00:0a"), 10}};
 
-std::map <Mac48Address, uint16_t> lastmcsperaddress = {{Mac48Address("00:00:00:00:00:01"), 0},{Mac48Address("00:00:00:00:00:02"), 0},{Mac48Address("00:00:00:00:00:03"), 0},
+std::map <Mac48Address, uint> addresslist = {{Mac48Address("00:00:00:00:00:01"), 0},{Mac48Address("00:00:00:00:00:02"), 0},{Mac48Address("00:00:00:00:00:03"), 0},
                                              {Mac48Address("00:00:00:00:00:04"), 0}, {Mac48Address("00:00:00:00:00:05"), 0}, {Mac48Address("00:00:00:00:00:06"), 0},
                                              {Mac48Address("00:00:00:00:00:07"), 0}, {Mac48Address("00:00:00:00:00:08"), 0}, {Mac48Address("00:00:00:00:00:09"), 0},
                                              {Mac48Address("00:00:00:00:00:0a"), 0}};
+
+std::map <Mac48Address, uint> addressstamap = {{Mac48Address("00:00:00:00:00:01"), 1},{Mac48Address("00:00:00:00:00:02"), 2},{Mac48Address("00:00:00:00:00:03"), 3},
+                                               {Mac48Address("00:00:00:00:00:04"), 4}, {Mac48Address("00:00:00:00:00:05"), 5}, {Mac48Address("00:00:00:00:00:06"), 6},
+                                               {Mac48Address("00:00:00:00:00:07"), 7}, {Mac48Address("00:00:00:00:00:08"), 8}, {Mac48Address("00:00:00:00:00:09"), 9},
+                                               {Mac48Address("00:00:00:00:00:0a"), 10}};
+
+std::map <Mac48Address, uint16_t> lastmcsperaddress = {{Mac48Address("00:00:00:00:00:01"), 7},{Mac48Address("00:00:00:00:00:02"), 7},{Mac48Address("00:00:00:00:00:03"), 7},
+                                                       {Mac48Address("00:00:00:00:00:04"), 7}, {Mac48Address("00:00:00:00:00:05"), 7}, {Mac48Address("00:00:00:00:00:06"), 7},
+                                                       {Mac48Address("00:00:00:00:00:07"), 7}, {Mac48Address("00:00:00:00:00:08"), 7}, {Mac48Address("00:00:00:00:00:09"), 7},
+                                                       {Mac48Address("00:00:00:00:00:0a"), 7}};
 
 std::map <int, float> mcs0agglengthexpth = {{550, 0},{1024, 0},{2048, 0},{3839, 0}};
 std::map <int, float> mcs1agglengthexpth = {{550, 0},{1024, 0},{2048, 0},{3839, 0}};
@@ -108,10 +110,11 @@ std::array<int, 4> sta9bannedcount = {0};
 std::array<int, 4> sta10bannedcount = {0};
 
 //map fr banned counter per station
-std::map <Mac48Address, std::array<int, 4> > bannedagglengthcounterperstation = {{Mac48Address("00:00:00:00:00:01"), sta1bannedcount},{Mac48Address("00:00:00:00:00:02"), sta2bannedcount},{Mac48Address("00:00:00:00:00:03"), sta3bannedcount},
-                                             {Mac48Address("00:00:00:00:00:04"), sta4bannedcount}, {Mac48Address("00:00:00:00:00:05"), sta5bannedcount}, {Mac48Address("00:00:00:00:00:06"), sta6bannedcount},
-                                             {Mac48Address("00:00:00:00:00:07"), sta7bannedcount}, {Mac48Address("00:00:00:00:00:08"), sta8bannedcount}, {Mac48Address("00:00:00:00:00:09"), sta9bannedcount},
-                                             {Mac48Address("00:00:00:00:00:0a"), sta10bannedcount}};
+std::map <Mac48Address, std::array<int, 4> > bannedagglengthcounterperstation = {{Mac48Address("00:00:00:00:00:01"), sta1bannedcount},{Mac48Address("00:00:00:00:00:02"), sta2bannedcount},
+                                                                                 {Mac48Address("00:00:00:00:00:03"), sta3bannedcount}, {Mac48Address("00:00:00:00:00:04"), sta4bannedcount},
+                                                                                 {Mac48Address("00:00:00:00:00:05"), sta5bannedcount}, {Mac48Address("00:00:00:00:00:06"), sta6bannedcount},
+                                                                                 {Mac48Address("00:00:00:00:00:07"), sta7bannedcount}, {Mac48Address("00:00:00:00:00:08"), sta8bannedcount},
+                                                                                 {Mac48Address("00:00:00:00:00:09"), sta9bannedcount}, {Mac48Address("00:00:00:00:00:0a"), sta10bannedcount}};
 
 std::map <uint16_t, int> agglengthtoindexmap = {{550,0},{1024,1},{2048,2},{3839,3}};
 uint len_1, len_2, len_3, len_4;
@@ -152,7 +155,7 @@ MinstrelHtWifiManager::GetTypeId (void)
                    MakeTimeChecker ())
     .AddAttribute ("LookAroundRate",
                    "The percentage to try other rates (for legacy Minstrel)",
-                   UintegerValue (10),
+                   UintegerValue (0),
                    MakeUintegerAccessor (&MinstrelHtWifiManager::m_lookAroundRate),
                    MakeUintegerChecker<uint8_t>(0, 100))
     .AddAttribute ("EWMA",
@@ -199,6 +202,7 @@ MinstrelHtWifiManager::MinstrelHtWifiManager ()
    *  Create the legacy Minstrel manager in case HT is not supported by the device
    *  or non-HT stations want to associate.
    */
+  //std::cout<<"LEGACY\n";
   m_legacyManager = CreateObject<MinstrelWifiManager> ();
 }
 
@@ -222,6 +226,7 @@ MinstrelHtWifiManager::AssignStreams (int64_t stream)
   int64_t numStreamsAssigned = 0;
   m_uniformRandomVariable->SetStream (stream);
   numStreamsAssigned++;
+  //std::cout<<"legacy\n";
   numStreamsAssigned += m_legacyManager->AssignStreams (stream);
   return numStreamsAssigned;
 }
@@ -231,6 +236,7 @@ MinstrelHtWifiManager::SetupPhy (const Ptr<WifiPhy> phy)
 {
   NS_LOG_FUNCTION (this << phy);
   // Setup phy for legacy manager.
+  //std::cout<<"legacy\n";
   m_legacyManager->SetupPhy (phy);
   WifiRemoteStationManager::SetupPhy (phy);
 }
@@ -251,7 +257,7 @@ MinstrelHtWifiManager::DoInitialize ()
     {
       m_numGroups = MAX_SUPPORTED_STREAMS * MAX_HT_STREAM_GROUPS;
       m_numRates = MAX_HT_GROUP_RATES;
-
+      NS_LOG_DEBUG("NUMGROUPS"<<std::to_string(m_numGroups)<<"m_numRates"<<m_numRates<<"\n");
       if (HasVhtSupported ())
         {
           m_numGroups += MAX_SUPPORTED_STREAMS * MAX_VHT_STREAM_GROUPS;
@@ -358,6 +364,7 @@ void
 MinstrelHtWifiManager::SetupMac (const Ptr<WifiMac> mac)
 {
   NS_LOG_FUNCTION (this << mac);
+  //std::cout<<"legacy\n";
   m_legacyManager->SetupMac (mac);
   WifiRemoteStationManager::SetupMac (mac);
 }
@@ -409,6 +416,7 @@ MinstrelHtWifiManager::GetFirstMpduTxTime (uint8_t groupId, WifiMode mode) const
 {
   NS_LOG_FUNCTION (this << +groupId << mode);
   auto it = m_minstrelGroups[groupId].ratesFirstMpduTxTimeTable.find (mode);
+  std::cout<<mode<<" is the mode"<<groupId<<" is the groupid\n";
   NS_ASSERT (it != m_minstrelGroups[groupId].ratesFirstMpduTxTimeTable.end ());
   return it->second;
 }
@@ -442,12 +450,13 @@ MinstrelHtWifiManager::DoCreateStation (void) const
   NS_LOG_FUNCTION (this);
   MinstrelHtWifiRemoteStation *station = new MinstrelHtWifiRemoteStation ();
 
-  // Initialize variables common to both stations.
+  // Initialize variables common to both stations. //hard
   station->m_nextStatsUpdate = Simulator::Now () + m_updateStats;
   station->m_col = 0;
   station->m_index = 0;
-  station->m_maxTpRate = 0;
-  station->m_maxTpRate2 = 0;
+  //std::cout<<station->m_state->m_address<<" last mcs\n";
+  station->m_maxTpRate = 0;//lastmcsperaddress[station->m_state->m_address];//0
+  station->m_maxTpRate2 = 0;//lastmcsperaddress[station->m_state->m_address];//0
   station->m_maxProbRate = 0;
   station->m_nModes = 0;
   station->m_totalPacketsCount = 0;
@@ -472,6 +481,7 @@ MinstrelHtWifiManager::DoCreateStation (void) const
   station->m_ampduPacketCount = 0;
 
   // If the device supports HT
+  //std::cout<<" HT:"<<station->m_isHt<<"\n";
   if (HasHtSupported () || HasVhtSupported ())
     {
       /**
@@ -479,13 +489,13 @@ MinstrelHtWifiManager::DoCreateStation (void) const
        * When correct information available it will be checked.
        */
       station->m_isHt = true;
-      std::cout<<"HT HT HT"<<station->m_isHt<<"\n";
+      //std::cout<<"HT HT HT"/*<<station->m_state->m_address<<" address"*/<<" is HT:"<<station->m_isHt<<"\n";
     }
   // Use the variable in the station to indicate that the device do not support HT
   else
     {
       station->m_isHt = false;
-      std::cout<<"HT HT not not HT"<<station->m_isHt<<"\n";
+      //std::cout<<"HT HT not not HT"<<station->m_isHt<<"\n";
     }
 
   return station;
@@ -506,7 +516,8 @@ MinstrelHtWifiManager::CheckInit (MinstrelHtWifiRemoteStation *station)
        *  the station will not support HT either.
        *  We save from using another check and variable.
        */
-      if (!GetHtSupported (station) && !GetVhtSupported (station))
+       //std::cout<<"in CHECKINIT MINSTRELHT\n";
+      if (!GetHtSupported (station) && !GetVhtSupported (station)) //hard to avoid legacy remaining in WifiRemoteStationManager
         {
           NS_LOG_INFO ("Non-HT station " << station->m_state->m_address);
           station->m_isHt = false;
@@ -522,18 +533,21 @@ MinstrelHtWifiManager::CheckInit (MinstrelHtWifiRemoteStation *station)
         }
       else
         {
+          //std::cout<<"in HT"<<"\n";
           NS_LOG_DEBUG ("HT station " << station->m_state->m_address);
           station->m_isHt = true;
-          station->m_nModes = GetNMcsSupported (station);
+          station->m_nModes = GetNMcsSupported (station);//static_cast<uint8_t> (1);//hard
+          //station->m_state->m_operationalMcsSet.push_back(GetMcsSupported(station, 0));//hard
           station->m_minstrelTable = MinstrelRate (station->m_nModes);
           station->m_sampleTable = SampleRate (m_numRates, std::vector<uint8_t> (m_nSampleCol));
           InitSampleTable (station);
           RateInit (station);
           std::ostringstream tmp;
+          std::cout<<lastmcsperaddress[station->m_state->m_address]<<" is the last mcs:\n";
           tmp << "minstrel-ht-stats-" << station->m_state->m_address << ".txt";
           station->m_statsFile.open (tmp.str ().c_str (), std::ios::out);
           station->m_initialized = true;
-        }
+       }
     }
 }
 
@@ -593,7 +607,8 @@ MinstrelHtWifiManager::DoReportDataFailed (WifiRemoteStation *st)
   NS_LOG_DEBUG ("DoReportDataFailed " << station << "\t rate " << station->m_txrate << "\tlongRetry \t" << station->m_longRetry);
 
   if (!station->m_isHt)
-    {
+    {//legacy
+      //std::cout<<"legacy\n";
       m_legacyManager->UpdateRate (station);
     }
   else
@@ -788,7 +803,7 @@ MinstrelHtWifiManager::UpdateRate (MinstrelHtWifiRemoteStation *station)
    * Following implementation in Linux, in MinstrelHT Lowest baserate is not used.
    * Explanation can be found here: http://marc.info/?l=linux-wireless&m=144602778611966&w=2
    */
-
+   std::cout<<"in update rate\n";
   CheckInit (station);
   if (!station->m_initialized)
     {
@@ -909,24 +924,23 @@ MinstrelHtWifiManager::DoGetDataTxVector (WifiRemoteStation *st)
     }
 
   if (!station->m_isHt)
-    {
+    {// try disabling to hard?
       WifiTxVector vector = m_legacyManager->GetDataTxVector (station);
       uint64_t dataRate = vector.GetMode ().GetDataRate (vector);
       if (m_currentRate != dataRate && !station->m_isSampling)
         {
-          NS_LOG_DEBUG ("New datarate: " << dataRate);
+          NS_LOG_DEBUG ("New datarate notHT: " << dataRate);
           m_currentRate = dataRate;
         }
       return vector;
     }
   else
     {
-      NS_LOG_DEBUG ("DoGetDataMode m_txrate= " << station->m_txrate);
+      NS_LOG_DEBUG ("DoGetDataMode m_txrate= " << station->m_txrate<<" address:"<<station->m_state->m_address);
 
       uint8_t rateId = GetRateId (station->m_txrate);
       uint8_t groupId = GetGroupId (station->m_txrate);
       uint8_t mcsIndex = station->m_groupsTable[groupId].m_ratesTable[rateId].mcsIndex;
-
       NS_LOG_DEBUG ("DoGetDataMode rateId= " << +rateId << " groupId= " << +groupId << " mode= " << GetMcsSupported (station, mcsIndex));
 
       McsGroup group = m_minstrelGroups[groupId];
@@ -1153,7 +1167,7 @@ MinstrelHtWifiManager::FindRate (MinstrelHtWifiRemoteStation *station)
       //SAMPLING
       NS_LOG_DEBUG ("Obtaining a sampling rate");
       /// Now go through the table and find an index rate.
-      uint16_t sampleIdx = GetNextSample (station);
+      uint16_t sampleIdx = lastmcsperaddress[station->m_state->m_address]/*GetNextSample (station)*/;//hard
       NS_LOG_DEBUG ("Sampling rate = " << sampleIdx);
 
       //Evaluate if the sampling rate selected should be used.
@@ -1190,8 +1204,12 @@ MinstrelHtWifiManager::FindRate (MinstrelHtWifiRemoteStation *station)
               uint8_t maxProbGroupId = GetGroupId (station->m_maxProbRate);
               uint8_t maxProbRateId = GetRateId (station->m_maxProbRate);
 
+
+
               uint8_t maxTpStreams = m_minstrelGroups[maxTpGroupId].streams;
               uint8_t sampleStreams = m_minstrelGroups[sampleGroupId].streams;
+
+              //std::cout <<"FMAXTPratestreams="<<std::to_string(maxTpStreams)<<"maxtprate2"<<std::to_string(maxTp2GroupId)<<"\n";
 
               Time sampleDuration = sampleRateInfo.perfectTxTime;
               Time maxTp2Duration = station->m_groupsTable[maxTp2GroupId].m_ratesTable[maxTp2RateId].perfectTxTime;
@@ -1208,7 +1226,7 @@ MinstrelHtWifiManager::FindRate (MinstrelHtWifiRemoteStation *station)
                   /// set the rate that we're currently sampling
                   station->m_sampleRate = sampleIdx;
 
-                  NS_LOG_DEBUG ("FindRate " << "sampleRate=" << sampleIdx);
+                  NS_LOG_DEBUG ("FindRate " << "sampleRate=" << sampleIdx<<" for station:"<<station->m_state->m_address);
                   station->m_sampleTries--;
                   return sampleIdx;
                 }
@@ -1262,9 +1280,9 @@ MinstrelHtWifiManager::UpdateStats (MinstrelHtWifiRemoteStation *station)
     }
 
   /* Initialize global rate indexes */
-  station->m_maxTpRate = GetLowestIndex (station);
-  station->m_maxTpRate2 = GetLowestIndex (station);
-  station->m_maxProbRate = GetLowestIndex (station);
+  station->m_maxTpRate = lastmcsperaddress[station->m_state->m_address]/*GetLowestIndex (station)*/;//7/**/;
+  station->m_maxTpRate2 = lastmcsperaddress[station->m_state->m_address]/*GetLowestIndex (station)*/;// 7/*GetLowestIndex (station)*/;
+  station->m_maxProbRate = lastmcsperaddress[station->m_state->m_address]/*GetLowestIndex (station)*/;//7/*GetLowestIndex (station)*/;
 
   /// Update throughput and EWMA for each rate inside each group.
   for (uint8_t j = 0; j < m_numGroups; j++)
@@ -1275,9 +1293,9 @@ MinstrelHtWifiManager::UpdateStats (MinstrelHtWifiRemoteStation *station)
           NS_LOG_DEBUG("Count of sample = "<<station->m_sampleCount<<"\n");
 
           /* (re)Initialize group rate indexes */
-          station->m_groupsTable[j].m_maxTpRate = GetLowestIndex (station, j);
-          station->m_groupsTable[j].m_maxTpRate2 = GetLowestIndex (station, j);
-          station->m_groupsTable[j].m_maxProbRate = GetLowestIndex (station, j);
+          station->m_groupsTable[j].m_maxTpRate = lastmcsperaddress[station->m_state->m_address];//GetLowestIndex (station, j);
+          station->m_groupsTable[j].m_maxTpRate2 = lastmcsperaddress[station->m_state->m_address];//GetLowestIndex (station, j);
+          station->m_groupsTable[j].m_maxProbRate = lastmcsperaddress[station->m_state->m_address];//GetLowestIndex (station, j);
 
           for (uint8_t i = 0; i < m_numRates; i++)
             {
@@ -1419,7 +1437,7 @@ MinstrelHtWifiManager::SetBestProbabilityRate (MinstrelHtWifiRemoteStation *stat
       currentTh = station->m_groupsTable[groupId].m_ratesTable[rateId].throughput;
       if (currentTh > tmpTh)
         {
-          station->m_maxProbRate = index;
+          station->m_maxProbRate = lastmcsperaddress[station->m_state->m_address];//index;//hard
         }
 
       maxGPGroupId = GetGroupId (group->m_maxProbRate);
@@ -1428,19 +1446,19 @@ MinstrelHtWifiManager::SetBestProbabilityRate (MinstrelHtWifiRemoteStation *stat
 
       if (currentTh > maxGPTh)
         {
-          group->m_maxProbRate = index;
+          group->m_maxProbRate = lastmcsperaddress[station->m_state->m_address];//index;//hard
         }
     }
   else
     {
       if (rate.ewmaProb > tmpProb)
         {
-          station->m_maxProbRate = index;
+          station->m_maxProbRate = lastmcsperaddress[station->m_state->m_address];//index;//hard
         }
       maxGPRateId = GetRateId (group->m_maxProbRate);
       if (rate.ewmaProb > group->m_ratesTable[maxGPRateId].ewmaProb)
         {
-          group->m_maxProbRate = index;
+          group->m_maxProbRate = lastmcsperaddress[station->m_state->m_address];//index//hard;
         }
     }
 }
@@ -1479,12 +1497,12 @@ MinstrelHtWifiManager::SetBestStationThRates (MinstrelHtWifiRemoteStation *stati
 
   if (th > maxTpTh || (th == maxTpTh && prob > maxTpProb))
     {
-      station->m_maxTpRate2 = station->m_maxTpRate;
-      station->m_maxTpRate = index;
+      station->m_maxTpRate2 = lastmcsperaddress[station->m_state->m_address]/*station->m_maxTpRate*/;
+      station->m_maxTpRate = lastmcsperaddress[station->m_state->m_address];//index;
     }
   else if (th > maxTp2Th || (th == maxTp2Th && prob > maxTp2Prob))
     {
-      station->m_maxTpRate2 = index;
+      station->m_maxTpRate2 = lastmcsperaddress[station->m_state->m_address];//index;
     }
 
   //Find best rates per group
@@ -1502,12 +1520,12 @@ MinstrelHtWifiManager::SetBestStationThRates (MinstrelHtWifiRemoteStation *stati
 
   if (th > maxTpTh || (th == maxTpTh && prob > maxTpProb))
     {
-      group->m_maxTpRate2 = group->m_maxTpRate;
-      group->m_maxTpRate = index;
+      group->m_maxTpRate2 = lastmcsperaddress[station->m_state->m_address];//group->m_maxTpRate;//hard
+      group->m_maxTpRate = lastmcsperaddress[station->m_state->m_address];//index;//hard
     }
   else if (th > maxTp2Th || (th == maxTp2Th && prob > maxTp2Prob))
     {
-      group->m_maxTpRate2 = index;
+      group->m_maxTpRate2 = lastmcsperaddress[station->m_state->m_address];//index;//hard
     }
 }
 
@@ -1545,10 +1563,11 @@ MinstrelHtWifiManager::RateInit (MinstrelHtWifiRemoteStation *station)
                 {
                   station->m_groupsTable[groupId].m_ratesTable[i].supported = false;
                 }
-
+              NS_LOG_DEBUG("no of modes before forloop:"<<unsigned(station->m_nModes)<<"\n");
               // Initialize all modes supported by the remote station that belong to the current group.
               for (uint8_t i = 0; i < station->m_nModes; i++)
                 {
+                  NS_LOG_DEBUG("No of modes:"<<unsigned(station->m_nModes)<<" no of mcs:"<<unsigned(GetNMcsSupported(station))<<"\n");
                   WifiMode mode = GetMcsSupported (station, i);
 
                   ///Use the McsValue as the index in the rate table.
@@ -1876,18 +1895,18 @@ MinstrelHtWifiManager::StatsDump (MinstrelHtWifiRemoteStation *station, uint8_t 
             //for(uint j = 0; j < sizeof(addresslist); j++)
             //{
             uint prevmcs = lastmcsperaddress[station->m_state->m_address];
-
+            //discouting the ulink traffic
             if(idx == prevmcs  && station->m_state->m_address != Mac48Address("00:00:00:00:00:0b") && station->m_state->m_address != Mac48Address("00:00:00:00:00:0c") && station->m_state->m_address != Mac48Address("00:00:00:00:00:0d"))//
             {
               if (ns3val)
               {
                 //std::cout<<"The last mcs is "<<prevmcs<< " and current mcs is "<<idx<< " MAXTPRATE is "<<maxTpRate<<"\n";
                 //for ns3 validation
-                std::cout<< packetsizeperstation[station->m_state->m_address]*double(station->m_groupsTable[groupId].m_ratesTable[prevmcs].prevNumRateSuccess)<<" is the success bytes at prev mcs "<<unsigned(prevmcs)<<"\n";
-                std::cout<<"MAC add:"<<station->m_state->m_address<<" for attempts "<<double(station->m_groupsTable[groupId].m_ratesTable[prevmcs].prevNumRateSuccess)<<"at MCS "<< unsigned(prevmcs)<< "\n";
+                //std::cout<< packetsizeperstation[station->m_state->m_address]*double(station->m_groupsTable[groupId].m_ratesTable[prevmcs].prevNumRateSuccess)<<" is the success bytes at prev mcs "<<unsigned(prevmcs)<<"\n";
+                //std::cout<<"MAC add:"<<station->m_state->m_address<<" for attempts "<<double(station->m_groupsTable[groupId].m_ratesTable[prevmcs].prevNumRateSuccess)<<"at MCS "<< unsigned(prevmcs)<< "\n";
                 totalnoofbytessuccesscurrent = packetsizeperstation[station->m_state->m_address]*double(station->m_groupsTable[groupId].m_ratesTable[prevmcs].prevNumRateSuccess);
                 //std::cout<<"no of currnet attempt bytes:"<<totalnoofbytessuccesscurrent<<" from MAC "<<station->m_state->m_address<<" at MCS "<<prevmcs<<"\n";
-                chanutil[station->m_state->m_address] = totalnoofbytessuccesscurrent*8/(1024*1024*mcsphyrate[prevmcs]*0.1);//channel util for platform 0.1 for minstrel window 100ms
+                chanutil[station->m_state->m_address] = totalnoofbytessuccesscurrent*8*10/(1024*1024*mcsphyrate[prevmcs]);//channel util for platform 0.1 for minstrel window 100ms
                 successrations3[station->m_state->m_address] = float(station->m_groupsTable[groupId].m_ratesTable[prevmcs].lasttoprevNumRateSuccess) / float(station->m_groupsTable[groupId].m_ratesTable[prevmcs].lasttoprevNumRateAttempt)*100;
                 //station->m_statsFile << "\nGoodput:"<<float(packetsizeperstation[station->m_state->m_address]*double(station->m_groupsTable[groupId].m_ratesTable[i].lasttoprevNumRateSuccess)*8/(1024*1024*0.1))<<"\n Channel Utilization:"<<chanutil[station->m_state->m_address]<<"\n";
                 filegp <<float(packetsizeperstation[station->m_state->m_address]*double(station->m_groupsTable[groupId].m_ratesTable[i].lasttoprevNumRateSuccess)*8/(1024*1024*0.1))<<",";
@@ -1897,15 +1916,15 @@ MinstrelHtWifiManager::StatsDump (MinstrelHtWifiRemoteStation *station, uint8_t 
               else
               {
                 //for platform validation
-                totalnoofbytesattemptedcurrent += packetsizeperstation[station->m_state->m_address]*double(station->m_groupsTable[groupId].m_ratesTable[prevmcs].prevNumRateAttempt);// the time taken for the data is?
-                std::cout<<"no of currnet attempt bytes:"<<totalnoofbytesattemptedcurrent<<" from MAC "<<station->m_state->m_address<<"\n";
-                std::cout<<" num of attempts:"<<station->m_groupsTable[groupId].m_ratesTable[prevmcs].prevNumRateAttempt<<"\n";
+                totalnoofbytesattemptedcurrent = packetsizeperstation[station->m_state->m_address]*double(station->m_groupsTable[groupId].m_ratesTable[prevmcs].prevNumRateAttempt);// the time taken for the data is?
+                //std::cout<<"no of currnet attempt bytes:"<<totalnoofbytesattemptedcurrent<<" from MAC "<<station->m_state->m_address<<"\n";
+                //std::cout<<" num of attempts:"<<station->m_groupsTable[groupId].m_ratesTable[prevmcs].prevNumRateAttempt<<"\n";
                 //std::cout<<"last attempts "<<double(station->m_groupsTable[groupId].m_ratesTable[i].prevNumRateAttempt)<<" and the product is"<<double(station->m_groupsTable[groupId].m_ratesTable[i].prevNumRateAttempt)*(0.000034+0.000012+0.000016+0.000016+0.000004+0.000002154)<<"\n";
-                float inus = float((station->m_groupsTable[groupId].m_ratesTable[prevmcs].prevNumRateAttempt)*(0.000034+0.000012+0.000016+0.000016+0.000004+0.000002154)/0.1);
-                float datas = float(totalnoofbytesattemptedcurrent*8/(1024*1024*mcsphyrate[prevmcs]*0.1));
-
-                std::cout<<inus<< " frill in seconds\n";
-                std::cout<<datas<< " data  in seconds\n";
+                float inus = float((station->m_groupsTable[groupId].m_ratesTable[prevmcs].prevNumRateAttempt)*(0.000034+0.000012+0.000016+0.000016+0.000004+0.000002154)*10);//check for the ch util unit is seconds
+                float datas = float(totalnoofbytesattemptedcurrent*8*10/(1024*1024*mcsphyrate[prevmcs]));//gp(mbs)/phyrate(mbs)
+                std::cout<<"Percentage is:"<<((datas + inus)/1)*1<<"\n";
+                //std::cout<<inus<< " frill in seconds\n";
+                //std::cout<<datas<< " data  in seconds\n";
                 chanutil[station->m_state->m_address] = datas + inus;//+(double(station->m_groupsTable[groupId].m_ratesTable[i].prevNumRateAttempt)*(0.000034+0.000012+0.000016+0.000016+0.000004+0.000002154));
                 successratioplatform[station->m_state->m_address] = float(station->m_groupsTable[groupId].m_ratesTable[prevmcs].lasttoprevNumRateSuccess) / float(station->m_groupsTable[groupId].m_ratesTable[prevmcs].lasttoprevNumRateAttempt);
                 last_attempt_bytes[station->m_state->m_address] = packetsizeperstation[station->m_state->m_address]*double(station->m_groupsTable[groupId].m_ratesTable[prevmcs].lasttoprevNumRateSuccess);
@@ -2016,15 +2035,16 @@ MinstrelHtWifiManager::GetVhtGroupId (uint8_t txstreams, uint8_t sgi, uint16_t c
 }
 
 uint16_t
-MinstrelHtWifiManager::GetLowestIndex (MinstrelHtWifiRemoteStation *station)
+MinstrelHtWifiManager::GetLowestIndex (MinstrelHtWifiRemoteStation *station)//HARD
 {
   NS_LOG_FUNCTION (this << station);
 
   uint8_t groupId = 0;
   uint8_t rateId = 0;
+  //NS_LOG_DEBUG();
   while (groupId < m_numGroups && !station->m_groupsTable[groupId].m_supported)
     {
-      groupId++;
+      groupId++;//increase groupid till it reaches the numgroups
     }
   while (rateId < m_numRates && !station->m_groupsTable[groupId].m_ratesTable[rateId].supported)
     {
@@ -2072,9 +2092,9 @@ MinstrelHtWifiManager::GetHtDeviceMcsList (void) const
 
   for (uint8_t i = 0; i < phy->GetNMcs (); i++)// phy->GetNMcs ();
     {
-
+      //std::cout<<std::to_string(phy->GetNMcs ())<<"no of mcs\n";
       NS_LOG_DEBUG("inside GetHtDeviceMcsList");
-      WifiMode mode = phy->GetMcs (i);
+      WifiMode mode = phy->GetMcs (i);//hard 7=i
       if (mode.GetModulationClass () == WIFI_MOD_CLASS_HT)
         {
           htMcsList.push_back (mode);
@@ -5083,10 +5103,7 @@ int MinstrelHtWifiManager::comparelastandcurrentplatform (float succratio, float
     Py_DECREF(file3args);
     Py_DECREF(file4args);
     Py_DECREF(testobj);
-    //PyList_SET_ITEM(listObj, 2, PyFloat_FromDouble(double(mcsva)));
-    /*PyRun_SimpleString("from time import time,ctime\n"
-                       "print 'Today is',ctime(time())\n");*/
-    //Py_XDECREF(listObj);
+
 
     Py_DECREF(xdata);
     Py_DECREF(xdatatup);
