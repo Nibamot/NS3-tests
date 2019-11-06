@@ -20,6 +20,9 @@
  *          Ghada Badawy <gbadawy@gmail.com>
  *          Matias Richart <mrichart@fing.edu.uy>
  *
+ *  Edited for aggregation and minstrel tips: Abin Thomas <tom.abin789@gmail.com>
+ *
+ *
  * Some Comments:
  *
  * 1) By default, Minstrel applies the multi-rate retry (the core of Minstrel
