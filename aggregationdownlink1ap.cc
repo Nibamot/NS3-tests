@@ -88,19 +88,11 @@ int main (int argc, char *argv[])
   cmd.AddValue ("datarate", "DataRate:", datarate);
   cmd.Parse (argc, argv);
 
-
-
   //setting up stream for csv
   std::ofstream fileme;
   fileme.open("Output-Training-A"+std::to_string(nsta)+"payload"+std::to_string(payloadSize)+".csv",std::fstream::app);
   fileme << "Stations,#Trial Number, Number of stations, Positionx,Positiony,Positionz,Payload,Aggregation size,MCS,Bitrate(kbps),Throughput,Goodput,Tx Packets,Rx Packets, Packet Loss Ratio, Mean Delay(ms), Channel Utilization\n";
 
-
-
-    //Config::SetDefault ("ns3::WifiRemoteStationManager::RtsCtsThreshold", enableRts ? StringValue ("0") : StringValue ("999999"));
-    //Config::SetDefault ("ns3::WifiRemoteStationManager::FragmentationThreshold",UintegerValue (2346));
-    //Config::SetDefault ("ns3::OnOffApplication::PacketSize", UintegerValue(payloadSize));
-    //Config::SetDefault ("ns3::OnOffApplication::DataRate", StringValue("6.5Mb/s"));
     NS_LOG_INFO("Creating nodes");
 
     NodeContainer wifiStaNodes;
