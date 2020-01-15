@@ -19,10 +19,8 @@
  * Authors: Duy Nguyen <duy@soe.ucsc.edu>
  *          Ghada Badawy <gbadawy@gmail.com>
  *          Matias Richart <mrichart@fing.edu.uy>
- *
+
  *  Edited for aggregation and minstrel tips: Abin Thomas <tom.abin789@gmail.com>
- *
- *
  * Some Comments:
  *
  * 1) By default, Minstrel applies the multi-rate retry (the core of Minstrel
@@ -49,75 +47,75 @@
 #include "mac-low.h"
 #include "chrono"
 #include "thread"
+#include "vector"
+#include <sstream>
+#include "iostream"
 #include <python2.7/Python.h>
+#include "ns3/globalvalues.h"
 
 #define Min(a,b) ((a < b) ? a : b)
 #define Max(a,b) ((a > b) ? a : b)
 
 NS_LOG_COMPONENT_DEFINE ("MinstrelHtWifiManager");
 
+extern uint nsta;
 namespace ns3 {
+static std::map <uint, float> mcsphyrate = {{0,6.5},{1,13},{2,19.5},{3,26},{4,39},{5,52},{6,58.5},{7,65}};
+//auto
+static std::map <Mac48Address, uint> addresslist = {};
 
-std::map <uint, float> mcsphyrate = {{0,6.5},{1,13},{2,19.5},{3,26},{4,39},{5,52},{6,58.5},{7,65}};
-std::map <Mac48Address, uint> addresslist = {{Mac48Address("00:00:00:00:00:01"), 0},{Mac48Address("00:00:00:00:00:02"), 0},{Mac48Address("00:00:00:00:00:03"), 0},
-                                                         {Mac48Address("00:00:00:00:00:04"), 0}, {Mac48Address("00:00:00:00:00:05"), 0}, {Mac48Address("00:00:00:00:00:06"), 0},
-                                                         {Mac48Address("00:00:00:00:00:07"), 0}, {Mac48Address("00:00:00:00:00:08"), 0}, {Mac48Address("00:00:00:00:00:09"), 0},
-                                                         {Mac48Address("00:00:00:00:00:0a"), 0}};
-std::map <Mac48Address, uint> addressstamap = {{Mac48Address("00:00:00:00:00:01"), 1},{Mac48Address("00:00:00:00:00:02"), 2},{Mac48Address("00:00:00:00:00:03"), 3},
-                                                                                                                  {Mac48Address("00:00:00:00:00:04"), 4}, {Mac48Address("00:00:00:00:00:05"), 5}, {Mac48Address("00:00:00:00:00:06"), 6},
-                                                                                                                  {Mac48Address("00:00:00:00:00:07"), 7}, {Mac48Address("00:00:00:00:00:08"), 8}, {Mac48Address("00:00:00:00:00:09"), 9},
-                                                                                                                  {Mac48Address("00:00:00:00:00:0a"), 10}};
+//auto
+static std::map <Mac48Address, uint> addressstamap = {};
 
-std::map <Mac48Address, uint16_t> lastmcsperaddress = {{Mac48Address("00:00:00:00:00:01"), 0},{Mac48Address("00:00:00:00:00:02"), 0},{Mac48Address("00:00:00:00:00:03"), 0},
-                                             {Mac48Address("00:00:00:00:00:04"), 0}, {Mac48Address("00:00:00:00:00:05"), 0}, {Mac48Address("00:00:00:00:00:06"), 0},
-                                             {Mac48Address("00:00:00:00:00:07"), 0}, {Mac48Address("00:00:00:00:00:08"), 0}, {Mac48Address("00:00:00:00:00:09"), 0},
-                                             {Mac48Address("00:00:00:00:00:0a"), 0}};
-
-std::map <int, float> mcs0agglengthexpth = {{550, 0},{1024, 0},{2048, 0},{3839, 0}};
-std::map <int, float> mcs1agglengthexpth = {{550, 0},{1024, 0},{2048, 0},{3839, 0}};
-std::map <int, float> mcs2agglengthexpth = {{550, 0},{1024, 0},{2048, 0},{3839, 0}};
-std::map <int, float> mcs3agglengthexpth = {{550, 0},{1024, 0},{2048, 0},{3839, 0}};
-std::map <int, float> mcs4agglengthexpth = {{550, 0},{1024, 0},{2048, 0},{3839, 0}};
-std::map <int, float> mcs5agglengthexpth = {{550, 0},{1024, 0},{2048, 0},{3839, 0}};
-std::map <int, float> mcs6agglengthexpth = {{550, 0},{1024, 0},{2048, 0},{3839, 0}};
-std::map <int, float> mcs7agglengthexpth = {{550, 0},{1024, 0},{2048, 0},{3839, 0}};
-std::map <int, float> genagglengthexpth = {};
+//auto
+static std::map <Mac48Address, uint16_t> lastmcsperaddress = {};
 
 
-float globalchanutil, globalchanutilns3, globalchanutilplatform;
-bool ns3val = false;
-int checker = 0;
-std::map<Mac48Address, float> chanutil = {};
-std::map<Mac48Address, float> successrations3 = {};
-std::map<Mac48Address, float> successratioplatform = {};
-std::map<Mac48Address, float> minstrel_throughput = {};
-std::map<Mac48Address, float> last_attempt_bytes = {};
-std::map<Mac48Address, double> historical_bytes = {};
-std::map<Mac48Address, double> previous_historical_bytes = {};
-std::map<Mac48Address, float> second_statistics = {};
-std::map<Mac48Address, float> previous_statistics = {};
-std::map <Mac48Address, uint16_t> previousaggregationlengthperstation= {};
+static std::map <int, float> mcs0agglengthexpth = {{550, 0},{1024, 0},{2048, 0},{3839, 0}};
+static std::map <int, float> mcs1agglengthexpth = {{550, 0},{1024, 0},{2048, 0},{3839, 0}};
+static std::map <int, float> mcs2agglengthexpth = {{550, 0},{1024, 0},{2048, 0},{3839, 0}};
+static std::map <int, float> mcs3agglengthexpth = {{550, 0},{1024, 0},{2048, 0},{3839, 0}};
+static std::map <int, float> mcs4agglengthexpth = {{550, 0},{1024, 0},{2048, 0},{3839, 0}};
+static std::map <int, float> mcs5agglengthexpth = {{550, 0},{1024, 0},{2048, 0},{3839, 0}};
+static std::map <int, float> mcs6agglengthexpth = {{550, 0},{1024, 0},{2048, 0},{3839, 0}};
+static std::map <int, float> mcs7agglengthexpth = {{550, 0},{1024, 0},{2048, 0},{3839, 0}};
+static std::map <int, float> genagglengthexpth = {};
 
-//for banned counter
-std::array<int, 4> sta1bannedcount = {0};
-std::array<int, 4> sta2bannedcount = {0};
-std::array<int, 4> sta3bannedcount = {0};
-std::array<int, 4> sta4bannedcount = {0};
-std::array<int, 4> sta5bannedcount = {0};
-std::array<int, 4> sta6bannedcount = {0};
-std::array<int, 4> sta7bannedcount = {0};
-std::array<int, 4> sta8bannedcount = {0};
-std::array<int, 4> sta9bannedcount = {0};
-std::array<int, 4> sta10bannedcount = {0};
 
-//map fr banned counter per station
-std::map <Mac48Address, std::array<int, 4> > bannedagglengthcounterperstation = {{Mac48Address("00:00:00:00:00:01"), sta1bannedcount},{Mac48Address("00:00:00:00:00:02"), sta2bannedcount},{Mac48Address("00:00:00:00:00:03"), sta3bannedcount},
-                                             {Mac48Address("00:00:00:00:00:04"), sta4bannedcount}, {Mac48Address("00:00:00:00:00:05"), sta5bannedcount}, {Mac48Address("00:00:00:00:00:06"), sta6bannedcount},
-                                             {Mac48Address("00:00:00:00:00:07"), sta7bannedcount}, {Mac48Address("00:00:00:00:00:08"), sta8bannedcount}, {Mac48Address("00:00:00:00:00:09"), sta9bannedcount},
-                                             {Mac48Address("00:00:00:00:00:0a"), sta10bannedcount}};
+static float globalchanutil, globalchanutilns3, globalchanutilplatform;
+static bool ns3val = true;
+static int checker = 0;
+bool setmaparray = false;
+Mac48Address uplinkstations[3];
 
-std::map <uint16_t, int> agglengthtoindexmap = {{550,0},{1024,1},{2048,2},{3839,3}};
-uint len_1, len_2, len_3, len_4;
+static std::map<Mac48Address, float> chanutil = {};
+static std::map<Mac48Address, float> successrations3 = {};
+static std::map<Mac48Address, float> successratioplatform = {};
+static std::map<Mac48Address, float> minstrel_throughput = {};
+static std::map<Mac48Address, float> last_attempt_bytes = {};
+static std::map<Mac48Address, double> historical_bytes = {};
+static std::map<Mac48Address, double> previous_historical_bytes = {};
+static std::map<Mac48Address, float> second_statistics = {};
+static std::map<Mac48Address, float> previous_statistics = {};
+static std::map <Mac48Address, uint16_t> previousaggregationlengthperstation= {};
+
+
+static std::vector<std::array<int, 4>> allstaaggcount;
+static std::vector<std::array<int, 4>> allstabancount;
+static std::vector<std::array<int, 8>> allstamcscount;
+
+//map fr banned counter per station //auto
+static std::map <Mac48Address, std::array<int, 4> > bannedagglengthcounterperstation = {};
+
+
+//map to store get the max number of agg length used per station
+static std::map <Mac48Address, std::array<int, 4> > maxagglengthperstation = {};
+
+//map to store the max number of mcs used per station
+static std::map <Mac48Address, std::array<int, 8> > maxmcsperstation = {};
+
+
+static std::map <uint16_t, int> agglengthtoindexmap = {{550,0},{1024,1},{2048,2},{3839,3}};
 
 ///MinstrelHtWifiRemoteStation structure
 struct MinstrelHtWifiRemoteStation : MinstrelWifiRemoteStation
@@ -155,7 +153,7 @@ MinstrelHtWifiManager::GetTypeId (void)
                    MakeTimeChecker ())
     .AddAttribute ("LookAroundRate",
                    "The percentage to try other rates (for legacy Minstrel)",
-                   UintegerValue (10),
+                   UintegerValue (0),
                    MakeUintegerAccessor (&MinstrelHtWifiManager::m_lookAroundRate),
                    MakeUintegerChecker<uint8_t>(0, 100))
     .AddAttribute ("EWMA",
@@ -183,6 +181,16 @@ MinstrelHtWifiManager::GetTypeId (void)
                    BooleanValue (true),
                    MakeBooleanAccessor (&MinstrelHtWifiManager::m_printStats),
                    MakeBooleanChecker ())
+    .AddAttribute ("SetMapArray",
+                   "Control the setting of map/array based on number",
+                   BooleanValue (false),
+                   MakeBooleanAccessor (&MinstrelHtWifiManager::m_setallmaparrays),
+                   MakeBooleanChecker ())
+   .AddAttribute ("NumberofStations",
+                  "Gets the number of station in order to set the map of appropriate size",           /*hard code to make number of stations dynamic*/
+                  UintegerValue (10),
+                  MakeUintegerAccessor (&MinstrelHtWifiManager::m_noofstations),
+                  MakeUintegerChecker <uint32_t> (2, 20))
     .AddTraceSource ("Rate",
                      "Traced value for rate changes (b/s)",
                      MakeTraceSourceAccessor (&MinstrelHtWifiManager::m_currentRate),
@@ -203,6 +211,7 @@ MinstrelHtWifiManager::MinstrelHtWifiManager ()
    *  or non-HT stations want to associate.
    */
   m_legacyManager = CreateObject<MinstrelWifiManager> ();
+
 }
 
 MinstrelHtWifiManager::~MinstrelHtWifiManager ()
@@ -216,6 +225,85 @@ MinstrelHtWifiManager::~MinstrelHtWifiManager ()
           m_minstrelGroups[i].ratesTxTimeTable.clear ();
         }
     }
+
+}
+
+
+//autoset maps and arrays depending on the number of stations mentioned in tghe script
+void MinstrelHtWifiManager::SetAllMapsArrays(void)
+{
+   using namespace std;
+   const int decimal = m_noofstations;
+
+  //static std::array<std::array<int, 4>, 5> allstaaggcount = {0};
+  allstaaggcount.resize(decimal);
+  allstabancount.resize(decimal);
+  allstamcscount.resize(decimal);
+
+
+  for (int i = 1; i <= decimal; i++)
+  {
+    stringstream my_ss;
+    my_ss << hex << i;
+    string res = my_ss.str();
+    string addressmac, extramac;
+
+    if (res.size()==1)
+    {
+      extramac = "00:00:00:00:00:0";
+      addressmac = extramac+res;
+    }
+   else
+   {
+     res.insert(0,"0");
+     extramac = "00:00:00:00:00:";
+     addressmac = extramac+res;
+
+   }
+
+
+   int charsize = addressmac.size();
+   char stringchar[charsize];
+   strcpy(stringchar, addressmac.c_str());
+
+
+    addresslist.insert(std::pair<Mac48Address,uint>(Mac48Address(stringchar),0));
+    addressstamap.insert(std::pair<Mac48Address,uint>(Mac48Address(stringchar),i));
+    lastmcsperaddress.insert(std::pair<Mac48Address,uint16_t>(Mac48Address(stringchar),5));//for forced mcs
+    allstaaggcount[i-1] = {0};
+    maxagglengthperstation.insert(std::pair<Mac48Address,std::array<int, 4>>(Mac48Address(stringchar),allstaaggcount[i-1]));
+    allstabancount[i-1] = {0};
+    bannedagglengthcounterperstation.insert(std::pair<Mac48Address,std::array<int, 4>>(Mac48Address(stringchar),allstabancount[i-1]));
+    allstamcscount[i-1] = {0};
+    maxmcsperstation.insert (std::pair<Mac48Address,std::array<int, 8>>(Mac48Address(stringchar),allstamcscount[i-1]));
+  }
+
+  for (int j = decimal+1; j <= decimal+3; j++)
+  {
+    stringstream my_ss;
+    my_ss << hex << j;
+    string res = my_ss.str();
+    string addressmac, extramac;
+
+    if (res.size()==1)
+    {
+      extramac = "00:00:00:00:00:0";
+      addressmac = extramac+res;
+    }
+   else
+   {
+     res.insert(0,"0");
+     extramac = "00:00:00:00:00:";
+     addressmac = extramac+res;
+
+   }
+   int charsize = addressmac.size();
+   char stringchar[charsize];
+   strcpy(stringchar, addressmac.c_str());
+
+   uplinkstations[j-decimal-1] = Mac48Address(stringchar);
+ }
+
 }
 
 int64_t
@@ -225,6 +313,7 @@ MinstrelHtWifiManager::AssignStreams (int64_t stream)
   int64_t numStreamsAssigned = 0;
   m_uniformRandomVariable->SetStream (stream);
   numStreamsAssigned++;
+  ///std::cout<<"legacy\n";
   numStreamsAssigned += m_legacyManager->AssignStreams (stream);
   return numStreamsAssigned;
 }
@@ -234,6 +323,7 @@ MinstrelHtWifiManager::SetupPhy (const Ptr<WifiPhy> phy)
 {
   NS_LOG_FUNCTION (this << phy);
   // Setup phy for legacy manager.
+  ///std::cout<<"legacy\n";
   m_legacyManager->SetupPhy (phy);
   WifiRemoteStationManager::SetupPhy (phy);
 }
@@ -243,6 +333,15 @@ MinstrelHtWifiManager::DoInitialize ()
 {
   NS_LOG_FUNCTION (this);
 
+  if (!setmaparray)
+  {
+      m_noofstations = nsta;
+      std::cout<<m_noofstations<<" is the global set number of stations "<<setmaparray<<" \n";
+      SetAllMapsArrays();
+      setmaparray = true;
+
+  }
+
   /**
    * Here we initialize m_minstrelGroups with all the possible groups.
    * If a group is not supported by the device, then it is marked as not supported.
@@ -250,11 +349,15 @@ MinstrelHtWifiManager::DoInitialize ()
    */
 
   // Check if the device supports HT or VHT
+
+
+
+
   if (HasHtSupported () || HasVhtSupported ())
     {
       m_numGroups = MAX_SUPPORTED_STREAMS * MAX_HT_STREAM_GROUPS;
       m_numRates = MAX_HT_GROUP_RATES;
-
+      NS_LOG_DEBUG("NUMGROUPS"<<std::to_string(m_numGroups)<<"m_numRates"<<m_numRates<<"\n");
       if (HasVhtSupported ())
         {
           m_numGroups += MAX_SUPPORTED_STREAMS * MAX_VHT_STREAM_GROUPS;
@@ -355,12 +458,22 @@ MinstrelHtWifiManager::DoInitialize ()
             }
         }
     }
+
+//initialize the maps addresslist and lastmcsperaddress
+/*for (uint tep = 0; tep < m_noofstations ; tep++)
+{
+  //std::cout<<m_noofstations<<"\n";
+}*/
+
+
 }
+
 
 void
 MinstrelHtWifiManager::SetupMac (const Ptr<WifiMac> mac)
 {
   NS_LOG_FUNCTION (this << mac);
+  //std::cout<<"in SetupMac\n";
   m_legacyManager->SetupMac (mac);
   WifiRemoteStationManager::SetupMac (mac);
 }
@@ -412,6 +525,7 @@ MinstrelHtWifiManager::GetFirstMpduTxTime (uint8_t groupId, WifiMode mode) const
 {
   NS_LOG_FUNCTION (this << +groupId << mode);
   auto it = m_minstrelGroups[groupId].ratesFirstMpduTxTimeTable.find (mode);
+  //////std::cout<<mode<<" is the mode"<<groupId<<" is the groupid\n";
   NS_ASSERT (it != m_minstrelGroups[groupId].ratesFirstMpduTxTimeTable.end ());
   return it->second;
 }
@@ -445,7 +559,7 @@ MinstrelHtWifiManager::DoCreateStation (void) const
   NS_LOG_FUNCTION (this);
   MinstrelHtWifiRemoteStation *station = new MinstrelHtWifiRemoteStation ();
 
-  // Initialize variables common to both stations.
+  // Initialize variables common to both stations. //hard
   station->m_nextStatsUpdate = Simulator::Now () + m_updateStats;
   station->m_col = 0;
   station->m_index = 0;
@@ -475,6 +589,7 @@ MinstrelHtWifiManager::DoCreateStation (void) const
   station->m_ampduPacketCount = 0;
 
   // If the device supports HT
+  ///std::cout<<" HT:"<<station->m_isHt<<"\n";
   if (HasHtSupported () || HasVhtSupported ())
     {
       /**
@@ -482,13 +597,13 @@ MinstrelHtWifiManager::DoCreateStation (void) const
        * When correct information available it will be checked.
        */
       station->m_isHt = true;
-      std::cout<<"HT HT HT"<<station->m_isHt<<"\n";
+      ////std::cout<<"HT HT HT"/*<<station->m_state->m_address<<" address"*/<<" is HT:"<<station->m_isHt<<"\n";
     }
   // Use the variable in the station to indicate that the device do not support HT
   else
     {
       station->m_isHt = false;
-      std::cout<<"HT HT not not HT"<<station->m_isHt<<"\n";
+      ///std::cout<<"HT HT not not HT"<<station->m_isHt<<"\n";
     }
 
   return station;
@@ -509,11 +624,12 @@ MinstrelHtWifiManager::CheckInit (MinstrelHtWifiRemoteStation *station)
        *  the station will not support HT either.
        *  We save from using another check and variable.
        */
-      if (!GetHtSupported (station) && !GetVhtSupported (station))
+       ///std::cout<<"in CHECKINIT MINSTRELHT\n";
+      if (!GetHtSupported (station) && !GetVhtSupported (station)) //hard to avoid legacy remaining in WifiRemoteStationManager
         {
           NS_LOG_INFO ("Non-HT station " << station->m_state->m_address);
           station->m_isHt = false;
-          std::cout<<"in nonHT"<<"\n";
+          //////std::cout<<"in nonHT"<<"\n";
           // We will use non-HT minstrel for this station. Initialize the manager.
           m_legacyManager->SetAttribute ("UpdateStatistics", TimeValue (m_updateStats));
           m_legacyManager->SetAttribute ("LookAroundRate", UintegerValue (m_lookAroundRate));
@@ -525,18 +641,21 @@ MinstrelHtWifiManager::CheckInit (MinstrelHtWifiRemoteStation *station)
         }
       else
         {
-          NS_LOG_DEBUG ("HT station " << station->m_state->m_address);
+          ///std::cout<<"in HT"<<"\n";
+          NS_LOG_DEBUG ("check initHT station " << station->m_state->m_address);
           station->m_isHt = true;
-          station->m_nModes = GetNMcsSupported (station);
+          station->m_nModes = GetNMcsSupported (station);//static_cast<uint8_t> (1);//hard
+          //station->m_state->m_operationalMcsSet.push_back(GetMcsSupported(station, 0));//hard
           station->m_minstrelTable = MinstrelRate (station->m_nModes);
           station->m_sampleTable = SampleRate (m_numRates, std::vector<uint8_t> (m_nSampleCol));
           InitSampleTable (station);
           RateInit (station);
           std::ostringstream tmp;
+          //////std::cout<<lastmcsperaddress[station->m_state->m_address]<<" is the last mcs:\n";
           tmp << "minstrel-ht-stats-" << station->m_state->m_address << ".txt";
           station->m_statsFile.open (tmp.str ().c_str (), std::ios::out);
           station->m_initialized = true;
-        }
+       }
     }
 }
 
@@ -596,7 +715,8 @@ MinstrelHtWifiManager::DoReportDataFailed (WifiRemoteStation *st)
   NS_LOG_DEBUG ("DoReportDataFailed " << station << "\t rate " << station->m_txrate << "\tlongRetry \t" << station->m_longRetry);
 
   if (!station->m_isHt)
-    {
+    {//legacy
+      ///std::cout<<"legacy\n";
       m_legacyManager->UpdateRate (station);
     }
   else
@@ -656,6 +776,7 @@ MinstrelHtWifiManager::DoReportDataOk (WifiRemoteStation *st, double ackSnr, Wif
       UpdateRetry (station);
       if (Simulator::Now () >=  station->m_nextStatsUpdate)
         {
+          //////std::cout<<(station->m_nextStatsUpdate).GetSeconds()<<"\n";
           UpdateStats (station);
         }
 
@@ -791,7 +912,7 @@ MinstrelHtWifiManager::UpdateRate (MinstrelHtWifiRemoteStation *station)
    * Following implementation in Linux, in MinstrelHT Lowest baserate is not used.
    * Explanation can be found here: http://marc.info/?l=linux-wireless&m=144602778611966&w=2
    */
-
+   //////std::cout<<"in update rate\n";
   CheckInit (station);
   if (!station->m_initialized)
     {
@@ -912,24 +1033,23 @@ MinstrelHtWifiManager::DoGetDataTxVector (WifiRemoteStation *st)
     }
 
   if (!station->m_isHt)
-    {
+    {// try disabling to hard?
       WifiTxVector vector = m_legacyManager->GetDataTxVector (station);
       uint64_t dataRate = vector.GetMode ().GetDataRate (vector);
       if (m_currentRate != dataRate && !station->m_isSampling)
         {
-          NS_LOG_DEBUG ("New datarate: " << dataRate);
+          NS_LOG_DEBUG ("New datarate notHT: " << dataRate);
           m_currentRate = dataRate;
         }
       return vector;
     }
   else
     {
-      NS_LOG_DEBUG ("DoGetDataMode m_txrate= " << station->m_txrate);
+      NS_LOG_DEBUG ("DoGetDataMode m_txrate= " << station->m_txrate<<" address:"<<station->m_state->m_address);
 
       uint8_t rateId = GetRateId (station->m_txrate);
       uint8_t groupId = GetGroupId (station->m_txrate);
       uint8_t mcsIndex = station->m_groupsTable[groupId].m_ratesTable[rateId].mcsIndex;
-
       NS_LOG_DEBUG ("DoGetDataMode rateId= " << +rateId << " groupId= " << +groupId << " mode= " << GetMcsSupported (station, mcsIndex));
 
       McsGroup group = m_minstrelGroups[groupId];
@@ -1156,7 +1276,7 @@ MinstrelHtWifiManager::FindRate (MinstrelHtWifiRemoteStation *station)
       //SAMPLING
       NS_LOG_DEBUG ("Obtaining a sampling rate");
       /// Now go through the table and find an index rate.
-      uint16_t sampleIdx = GetNextSample (station);
+      uint16_t sampleIdx = lastmcsperaddress[station->m_state->m_address]/*lastmcsperaddress[station->m_state->m_address]GetNextSample (station)*/;//hard for fixed mcs
       NS_LOG_DEBUG ("Sampling rate = " << sampleIdx);
 
       //Evaluate if the sampling rate selected should be used.
@@ -1193,8 +1313,12 @@ MinstrelHtWifiManager::FindRate (MinstrelHtWifiRemoteStation *station)
               uint8_t maxProbGroupId = GetGroupId (station->m_maxProbRate);
               uint8_t maxProbRateId = GetRateId (station->m_maxProbRate);
 
+
+
               uint8_t maxTpStreams = m_minstrelGroups[maxTpGroupId].streams;
               uint8_t sampleStreams = m_minstrelGroups[sampleGroupId].streams;
+
+              ///std::cout <<"FMAXTPratestreams="<<std::to_string(maxTpStreams)<<"maxtprate2"<<std::to_string(maxTp2GroupId)<<"\n";
 
               Time sampleDuration = sampleRateInfo.perfectTxTime;
               Time maxTp2Duration = station->m_groupsTable[maxTp2GroupId].m_ratesTable[maxTp2RateId].perfectTxTime;
@@ -1211,7 +1335,7 @@ MinstrelHtWifiManager::FindRate (MinstrelHtWifiRemoteStation *station)
                   /// set the rate that we're currently sampling
                   station->m_sampleRate = sampleIdx;
 
-                  NS_LOG_DEBUG ("FindRate " << "sampleRate=" << sampleIdx);
+                  NS_LOG_DEBUG ("FindRate " << "sampleRate=" << sampleIdx<<" for station:"<<station->m_state->m_address);
                   station->m_sampleTries--;
                   return sampleIdx;
                 }
@@ -1265,9 +1389,9 @@ MinstrelHtWifiManager::UpdateStats (MinstrelHtWifiRemoteStation *station)
     }
 
   /* Initialize global rate indexes */
-  station->m_maxTpRate = GetLowestIndex (station);
-  station->m_maxTpRate2 = GetLowestIndex (station);
-  station->m_maxProbRate = GetLowestIndex (station);
+  station->m_maxTpRate = lastmcsperaddress[station->m_state->m_address]/*lastmcsperaddress[station->m_state->m_address]*/;//GetLowestIndex (station)7/**/;//hard
+  station->m_maxTpRate2 = lastmcsperaddress[station->m_state->m_address]/*lastmcsperaddress[station->m_state->m_address]*/;// 7/*GetLowestIndex (station)*/;//hard
+  station->m_maxProbRate = lastmcsperaddress[station->m_state->m_address]/**/;//7/*lastmcsperaddress[station->m_state->m_address]*/;//hardGetLowestIndex (station)
 
   /// Update throughput and EWMA for each rate inside each group.
   for (uint8_t j = 0; j < m_numGroups; j++)
@@ -1278,9 +1402,9 @@ MinstrelHtWifiManager::UpdateStats (MinstrelHtWifiRemoteStation *station)
           NS_LOG_DEBUG("Count of sample = "<<station->m_sampleCount<<"\n");
 
           /* (re)Initialize group rate indexes */
-          station->m_groupsTable[j].m_maxTpRate = GetLowestIndex (station, j);
-          station->m_groupsTable[j].m_maxTpRate2 = GetLowestIndex (station, j);
-          station->m_groupsTable[j].m_maxProbRate = GetLowestIndex (station, j);
+          station->m_groupsTable[j].m_maxTpRate = lastmcsperaddress[station->m_state->m_address];//lastmcsperaddress[station->m_state->m_address];//hard fixed mcs
+          station->m_groupsTable[j].m_maxTpRate2 = lastmcsperaddress[station->m_state->m_address];//lastmcsperaddress[station->m_state->m_address];//hard fixed mcs
+          station->m_groupsTable[j].m_maxProbRate = lastmcsperaddress[station->m_state->m_address];//lastmcsperaddress[station->m_state->m_address]GetLowestIndex (station, j);//hard fixed mcs
 
           for (uint8_t i = 0; i < m_numRates; i++)
             {
@@ -1354,8 +1478,11 @@ MinstrelHtWifiManager::UpdateStats (MinstrelHtWifiRemoteStation *station)
   CalculateRetransmits (station, station->m_maxTpRate);
   CalculateRetransmits (station, station->m_maxTpRate2);
   CalculateRetransmits (station, station->m_maxProbRate);
-
   NS_LOG_DEBUG ("max tp=" << station->m_maxTpRate << "\nmax tp2=" <<  station->m_maxTpRate2 << "\nmax prob=" << station->m_maxProbRate);
+
+  maxmcsperstation[station->m_state->m_address][station->m_maxTpRate]++;
+  //std::cout<<station->m_maxTpRate<<" MCS was chosen by "<<station->m_state->m_address<<" "<<maxmcsperstation[station->m_state->m_address][station->m_maxTpRate]<<" times\n";
+
   if (m_printStats)
     {
       PrintTable (station);
@@ -1422,7 +1549,7 @@ MinstrelHtWifiManager::SetBestProbabilityRate (MinstrelHtWifiRemoteStation *stat
       currentTh = station->m_groupsTable[groupId].m_ratesTable[rateId].throughput;
       if (currentTh > tmpTh)
         {
-          station->m_maxProbRate = index;
+          station->m_maxProbRate = lastmcsperaddress[station->m_state->m_address];//lastmcsperaddress[station->m_state->m_address]index;//hard for fixed mcs
         }
 
       maxGPGroupId = GetGroupId (group->m_maxProbRate);
@@ -1431,19 +1558,19 @@ MinstrelHtWifiManager::SetBestProbabilityRate (MinstrelHtWifiRemoteStation *stat
 
       if (currentTh > maxGPTh)
         {
-          group->m_maxProbRate = index;
+          group->m_maxProbRate = lastmcsperaddress[station->m_state->m_address];//lastmcsperaddress[station->m_state->m_address]index;//hard for fixed mcs
         }
     }
   else
     {
       if (rate.ewmaProb > tmpProb)
         {
-          station->m_maxProbRate = index;
+          station->m_maxProbRate = lastmcsperaddress[station->m_state->m_address];//lastmcsperaddress[station->m_state->m_address]index;//hard for fixed mcs
         }
       maxGPRateId = GetRateId (group->m_maxProbRate);
       if (rate.ewmaProb > group->m_ratesTable[maxGPRateId].ewmaProb)
         {
-          group->m_maxProbRate = index;
+          group->m_maxProbRate = lastmcsperaddress[station->m_state->m_address];//lastmcsperaddress[station->m_state->m_address]//hardindex; for fixed mcs
         }
     }
 }
@@ -1482,12 +1609,12 @@ MinstrelHtWifiManager::SetBestStationThRates (MinstrelHtWifiRemoteStation *stati
 
   if (th > maxTpTh || (th == maxTpTh && prob > maxTpProb))
     {
-      station->m_maxTpRate2 = station->m_maxTpRate;
-      station->m_maxTpRate = index;
+      station->m_maxTpRate2 = lastmcsperaddress[station->m_state->m_address]/*lastmcsperaddress[station->m_state->m_address]station->m_maxTpRate*/;
+      station->m_maxTpRate = lastmcsperaddress[station->m_state->m_address];//lastmcsperaddress[station->m_state->m_address]//index;
     }
   else if (th > maxTp2Th || (th == maxTp2Th && prob > maxTp2Prob))
     {
-      station->m_maxTpRate2 = index;
+      station->m_maxTpRate2 = lastmcsperaddress[station->m_state->m_address];//lastmcsperaddress[station->m_state->m_address]index;
     }
 
   //Find best rates per group
@@ -1505,12 +1632,12 @@ MinstrelHtWifiManager::SetBestStationThRates (MinstrelHtWifiRemoteStation *stati
 
   if (th > maxTpTh || (th == maxTpTh && prob > maxTpProb))
     {
-      group->m_maxTpRate2 = group->m_maxTpRate;
-      group->m_maxTpRate = index;
+      group->m_maxTpRate2 = lastmcsperaddress[station->m_state->m_address];//lastmcsperaddress[station->m_state->m_address];group->m_maxTpRate//hard for fixed mcs
+      group->m_maxTpRate = lastmcsperaddress[station->m_state->m_address];//lastmcsperaddress[station->m_state->m_address];index//hard for fixed mcs
     }
   else if (th > maxTp2Th || (th == maxTp2Th && prob > maxTp2Prob))
     {
-      group->m_maxTpRate2 = index;
+      group->m_maxTpRate2 = lastmcsperaddress[station->m_state->m_address];//lastmcsperaddress[station->m_state->m_address]index;//hard
     }
 }
 
@@ -1548,10 +1675,11 @@ MinstrelHtWifiManager::RateInit (MinstrelHtWifiRemoteStation *station)
                 {
                   station->m_groupsTable[groupId].m_ratesTable[i].supported = false;
                 }
-
+              NS_LOG_DEBUG("no of modes before forloop:"<<unsigned(station->m_nModes)<<"\n");
               // Initialize all modes supported by the remote station that belong to the current group.
               for (uint8_t i = 0; i < station->m_nModes; i++)
                 {
+                  NS_LOG_DEBUG("No of modes:"<<unsigned(station->m_nModes)<<" no of mcs:"<<unsigned(GetNMcsSupported(station))<<"\n");
                   WifiMode mode = GetMcsSupported (station, i);
 
                   ///Use the McsValue as the index in the rate table.
@@ -1706,6 +1834,9 @@ MinstrelHtWifiManager::PrintTable (MinstrelHtWifiRemoteStation *station)
 {
   station->m_statsFile << "               best   ____________rate__________    ________statistics________    ________________current(last)________________    _________________last_________________    ___________________________sum-of___________________________\n" <<
     " mode guard #  rate  [name   idx airtime  max_tp]  [avg(tp) avg(prob) sd(prob)]  [prob.|retry|suc|suc in Bytes|att|att in Bytes] [prob.|suc|suc in Bytes|att|att in Bytes] [#success |# success in Bytes| #attempts|# attempts in Bytes]\n";
+
+  //////std::cout<<int(m_numGroups)<<"\n";
+
   for (uint8_t i = 0; i < m_numGroups; i++)
     {
       StatsDump (station, i, station->m_statsFile);
@@ -1727,12 +1858,12 @@ MinstrelHtWifiManager::StatsDump (MinstrelHtWifiRemoteStation *station, uint8_t 
     //mark the addresses that are already in
     if(itc->second == 1)
     {
-      //std::cout<<"The MAC:"<<itc->first<<" is done\n";
+      ///std::cout<<"The MAC:"<<itc->first<<" is done\n";
       checker++;
     }
     else
     {
-      //std::cout<<"The MAC:"<<itc->first<<" is not done\n";
+      ///std::cout<<"The MAC:"<<itc->first<<" is not done\n";
       checker--;
     }
   }
@@ -1740,7 +1871,7 @@ MinstrelHtWifiManager::StatsDump (MinstrelHtWifiRemoteStation *station, uint8_t 
 /*if(checker >= 10)
 {
   globalchanutil = 0;
-  //std::cout<<"all done!\n";
+  ///std::cout<<"all done!\n";
 }*/
   uint8_t numRates = m_numRates;
   std::map<Mac48Address,uint32_t> noofrxaggpacketsperstation = MsduAggregator::getnoofrxaggpacketsperstation();
@@ -1755,9 +1886,10 @@ MinstrelHtWifiManager::StatsDump (MinstrelHtWifiRemoteStation *station, uint8_t 
   double totalnoofbytessuccesscurrent = 0;
 
 
-  std::ofstream filegp, filecu;
-  filegp.open("Goodput"+std::to_string(addressstamap[station->m_state->m_address])+"station.csv",std::fstream::app);
-  filecu.open("Channel Utilization"+std::to_string(addressstamap[station->m_state->m_address])+"station.csv",std::fstream::app);
+  std::ofstream filegp,filegpeach/*, filecu*/;
+  filegp.open("Goodputallstation.csv",std::fstream::app);//std::to_string(addressstamap[station->m_state->m_address])+"
+  filegpeach.open("Goodputaeach"+std::to_string(addressstamap[station->m_state->m_address])+"station.csv",std::fstream::app);//std::to_string(addressstamap[station->m_state->m_address])+"
+  //filecu.open("Channel Utilization"+std::to_string(addressstamap[station->m_state->m_address])+"station.csv",std::fstream::app);
 
   if (group.sgi)
     {
@@ -1771,7 +1903,7 @@ MinstrelHtWifiManager::StatsDump (MinstrelHtWifiRemoteStation *station, uint8_t 
 
   for (uint8_t i = 0; i < numRates; i++)
     {
-      //std::cout<<"What is this?"<<unsigned(i)<<"\n";
+      //////std::cout<<"What is this?"<<unsigned(numRates)<<"\n";
       if (station->m_groupsTable[groupId].m_supported && station->m_groupsTable[groupId].m_ratesTable[i].supported)
         {
           if (!group.isVht)
@@ -1863,12 +1995,7 @@ MinstrelHtWifiManager::StatsDump (MinstrelHtWifiRemoteStation *station, uint8_t 
             std::setw (9) << station->m_groupsTable[groupId].m_ratesTable[i].attemptHist << "  " <<
             //total attempts bytes
             std::setw (15) << packetsizeperstation[station->m_state->m_address]*double(station->m_groupsTable[groupId].m_ratesTable[i].attemptHist) << "\n";
-            //add the bytes attempted
-          /*  if (idx == maxTpRate && station->m_state->m_address != Mac48Address("00:00:00:00:00:0b") && station->m_state->m_address != Mac48Address("00:00:00:00:00:0c") && station->m_state->m_address != Mac48Address("00:00:00:00:00:0d"))
-            {
-              totalnoofbytesattemptedcurrent += packetsizeperstation[station->m_state->m_address]*double(station->m_groupsTable[groupId].m_ratesTable[i].prevNumRateAttempt);
-              totalnoofbytessuccesscurrent += packetsizeperstation[station->m_state->m_address]*double(station->m_groupsTable[groupId].m_ratesTable[i].prevNumRateSuccess);
-            }*/
+
             //NS_LOG_DEBUG("Time into simulation "<<Simulator::Now ().GetSeconds());
             //channel util= Tdifs(34us)+TB((CWmin(15us)*Tslot(9us))/2)+Tdata(what we have for ns3 success and platform attempts)+Tsifs(16us)+Tack(Tpre(16us)+Tphy(4us)+Tack(time for 14 bytes))
 
@@ -1879,56 +2006,48 @@ MinstrelHtWifiManager::StatsDump (MinstrelHtWifiRemoteStation *station, uint8_t 
             //for(uint j = 0; j < sizeof(addresslist); j++)
             //{
             uint prevmcs = lastmcsperaddress[station->m_state->m_address];
-
-            if(idx == prevmcs  && station->m_state->m_address != Mac48Address("00:00:00:00:00:0b") && station->m_state->m_address != Mac48Address("00:00:00:00:00:0c") && station->m_state->m_address != Mac48Address("00:00:00:00:00:0d"))//
-            {
+            //discouting the ulink traffic
+            if(idx == prevmcs  && station->m_state->m_address != uplinkstations[0] && station->m_state->m_address != uplinkstations[1] && station->m_state->m_address != uplinkstations[2])//
+            {//station->m_state->m_address != Mac48Address("00:00:00:00:00:0b") && station->m_state->m_address != Mac48Address("00:00:00:00:00:0c") && station->m_state->m_address != Mac48Address("00:00:00:00:00:0d")
               if (ns3val)
               {
-                //std::cout<<"The last mcs is "<<prevmcs<< " and current mcs is "<<idx<< " MAXTPRATE is "<<maxTpRate<<"\n";
-                //for ns3 validation
-                std::cout<< packetsizeperstation[station->m_state->m_address]*double(station->m_groupsTable[groupId].m_ratesTable[prevmcs].prevNumRateSuccess)<<" is the success bytes at prev mcs "<<unsigned(prevmcs)<<"\n";
-                std::cout<<"MAC add:"<<station->m_state->m_address<<" for attempts "<<double(station->m_groupsTable[groupId].m_ratesTable[prevmcs].prevNumRateSuccess)<<"at MCS "<< unsigned(prevmcs)<< "\n";
+
                 totalnoofbytessuccesscurrent = packetsizeperstation[station->m_state->m_address]*double(station->m_groupsTable[groupId].m_ratesTable[prevmcs].prevNumRateSuccess);
-                //std::cout<<"no of currnet attempt bytes:"<<totalnoofbytessuccesscurrent<<" from MAC "<<station->m_state->m_address<<" at MCS "<<prevmcs<<"\n";
-                chanutil[station->m_state->m_address] = totalnoofbytessuccesscurrent*8/(1024*1024*mcsphyrate[prevmcs]*0.1);//channel util for platform 0.1 for minstrel window 100ms
+                ///std::cout<<"no of currnet attempt bytes:"<<totalnoofbytessuccesscurrent<<" from MAC "<<station->m_state->m_address<<" at MCS "<<prevmcs<<"\n";
+                chanutil[station->m_state->m_address] = totalnoofbytessuccesscurrent*8*10/(1024*1024*mcsphyrate[prevmcs]);//channel util for platform 0.1 for minstrel window 100ms
                 successrations3[station->m_state->m_address] = float(station->m_groupsTable[groupId].m_ratesTable[prevmcs].lasttoprevNumRateSuccess) / float(station->m_groupsTable[groupId].m_ratesTable[prevmcs].lasttoprevNumRateAttempt)*100;
                 //station->m_statsFile << "\nGoodput:"<<float(packetsizeperstation[station->m_state->m_address]*double(station->m_groupsTable[groupId].m_ratesTable[i].lasttoprevNumRateSuccess)*8/(1024*1024*0.1))<<"\n Channel Utilization:"<<chanutil[station->m_state->m_address]<<"\n";
-                filegp <<float(packetsizeperstation[station->m_state->m_address]*double(station->m_groupsTable[groupId].m_ratesTable[i].lasttoprevNumRateSuccess)*8/(1024*1024*0.1))<<",";
-                filecu << chanutil[station->m_state->m_address]<<",";
+                filegp <<float(packetsizeperstation[station->m_state->m_address]*double(station->m_groupsTable[groupId].m_ratesTable[i].lasttoprevNumRateSuccess)*8/(1024*1024*0.1))<<"\n";
+                filegpeach <<float(packetsizeperstation[station->m_state->m_address]*double(station->m_groupsTable[groupId].m_ratesTable[i].lasttoprevNumRateSuccess)*8/(1024*1024*0.1))<<"\n";
+                //filecu << chanutil[station->m_state->m_address]<<"\n";
               }
 
               else
               {
                 //for platform validation
-                totalnoofbytesattemptedcurrent += packetsizeperstation[station->m_state->m_address]*double(station->m_groupsTable[groupId].m_ratesTable[prevmcs].prevNumRateAttempt);// the time taken for the data is?
-                std::cout<<"no of currnet attempt bytes:"<<totalnoofbytesattemptedcurrent<<" from MAC "<<station->m_state->m_address<<"\n";
-                std::cout<<" num of attempts:"<<station->m_groupsTable[groupId].m_ratesTable[prevmcs].prevNumRateAttempt<<"\n";
-                //std::cout<<"last attempts "<<double(station->m_groupsTable[groupId].m_ratesTable[i].prevNumRateAttempt)<<" and the product is"<<double(station->m_groupsTable[groupId].m_ratesTable[i].prevNumRateAttempt)*(0.000034+0.000012+0.000016+0.000016+0.000004+0.000002154)<<"\n";
-                float inus = float((station->m_groupsTable[groupId].m_ratesTable[prevmcs].prevNumRateAttempt)*(0.000034+0.000012+0.000016+0.000016+0.000004+0.000002154)/0.1);
-                float datas = float(totalnoofbytesattemptedcurrent*8/(1024*1024*mcsphyrate[prevmcs]*0.1));
+                totalnoofbytesattemptedcurrent = packetsizeperstation[station->m_state->m_address]*double(station->m_groupsTable[groupId].m_ratesTable[prevmcs].prevNumRateAttempt);// the time taken for the data is?
 
-                std::cout<<inus<< " frill in seconds\n";
-                std::cout<<datas<< " data  in seconds\n";
+                float inus = float((station->m_groupsTable[groupId].m_ratesTable[prevmcs].prevNumRateAttempt)*(0.000034+0.000012+0.000016+0.000016+0.000004+0.000002154));//check for the ch util unit is seconds
+                float datas = float(totalnoofbytesattemptedcurrent*8*10/(1024*1024*mcsphyrate[prevmcs]));//gp(mbs)/phyrate(mbs)
+                //////std::cout<<(inus+datas)*100<< " total in seconds\n";
                 chanutil[station->m_state->m_address] = datas + inus;//+(double(station->m_groupsTable[groupId].m_ratesTable[i].prevNumRateAttempt)*(0.000034+0.000012+0.000016+0.000016+0.000004+0.000002154));
                 successratioplatform[station->m_state->m_address] = float(station->m_groupsTable[groupId].m_ratesTable[prevmcs].lasttoprevNumRateSuccess) / float(station->m_groupsTable[groupId].m_ratesTable[prevmcs].lasttoprevNumRateAttempt);
                 last_attempt_bytes[station->m_state->m_address] = packetsizeperstation[station->m_state->m_address]*double(station->m_groupsTable[groupId].m_ratesTable[prevmcs].lasttoprevNumRateSuccess);
                 minstrel_throughput[station->m_state->m_address] = station->m_groupsTable[groupId].m_ratesTable[prevmcs].throughput / 100;
                 //station->m_statsFile << "\nGoodput:"<<float(packetsizeperstation[station->m_state->m_address]*double(station->m_groupsTable[groupId].m_ratesTable[i].lasttoprevNumRateSuccess)*8/(1024*1024*0.1))<<"\n Channel Utilization:"<<chanutil[station->m_state->m_address];
-                filegp <<float(packetsizeperstation[station->m_state->m_address]*double(station->m_groupsTable[groupId].m_ratesTable[i].lasttoprevNumRateSuccess)*8/(1024*1024*0.1))<<",";
-                filecu << chanutil[station->m_state->m_address]<<",";
+                filegp <<float(packetsizeperstation[station->m_state->m_address]*double(station->m_groupsTable[groupId].m_ratesTable[i].lasttoprevNumRateSuccess)*8/(1024*1024*0.1))<<"\n";
+                filegpeach <<float(packetsizeperstation[station->m_state->m_address]*double(station->m_groupsTable[groupId].m_ratesTable[i].lasttoprevNumRateSuccess)*8/(1024*1024*0.1))<<"\n";
+                //filecu << chanutil[station->m_state->m_address]<<"\n";
               }
+
               addresslist[station->m_state->m_address] = 1;
-
             }
-
-
-
 
 
             std::map<Mac48Address,float> ::iterator itb;
             for(itb = chanutil.begin(); itb != chanutil.end(); itb++)
             {
-              std::cout << "The station MAC "<<(itb->first)<<" channel utilisation "<<itb->second<<"\n";// << " " << it->second.first << " " <<it->second.second << "\n";
+              //////std::cout << "The station MAC "<<(itb->first)<<" channel utilisation "<<itb->second<<"\n";// << " " << it->second.first << " " <<it->second.second << "\n";
               globalchanutil+=itb->second;
             }
 
@@ -1943,42 +2062,46 @@ MinstrelHtWifiManager::StatsDump (MinstrelHtWifiRemoteStation *station, uint8_t 
             if (!ns3val)
             {
               globalchanutilplatform = globalchanutil*100;
-              std::cout<<" percent of Channel Utilization in platform:"<<globalchanutilplatform<<"\n";
-              //globalchanutil=globalchanutil*100;//in % for ns3 and as it is for platform
+              /*M5P*/
               //MsduAggregator::setamsdusizeperstation(station->m_state->m_address, comparelastandcurrentplatform(successratioplatform[station->m_state->m_address], globalchanutilns3, last_attempt_bytes[station->m_state->m_address], minstrel_throughput[station->m_state->m_address], idx, lastmcsperaddress[station->m_state->m_address],station->m_state->m_address));
-              MsduAggregator::setamsdusizeperstation(station->m_state->m_address, comparelastandcurrentrfrplatform(successratioplatform[station->m_state->m_address], globalchanutilns3, last_attempt_bytes[station->m_state->m_address], minstrel_throughput[station->m_state->m_address], idx, lastmcsperaddress[station->m_state->m_address],station->m_state->m_address));
+
+              //globalchanutil=globalchanutil*100;//in % for ns3 and as it is for platform
+
+              /*Random Forest*/
+              //MsduAggregator::setamsdusizeperstation(station->m_state->m_address, comparelastandcurrentrfrplatform(successratioplatform[station->m_state->m_address], globalchanutilns3, last_attempt_bytes[station->m_state->m_address], minstrel_throughput[station->m_state->m_address], idx, lastmcsperaddress[station->m_state->m_address],station->m_state->m_address));
             }
 
             else
             {
               globalchanutilns3 = globalchanutil;
-              std::cout<<" Channel Utilization in NS3:"<<globalchanutilns3<<"\n";
-              //where the compa
+              /*M5P*/
               //MsduAggregator::setamsdusizeperstation(station->m_state->m_address, comparelastandcurrent(successrations3[station->m_state->m_address], globalchanutilns3, idx, lastmcsperaddress[station->m_state->m_address],station->m_state->m_address));
+
+              /*Random Forest Regressor*/
               //MsduAggregator::setamsdusizeperstation(station->m_state->m_address, comparelastandcurrentrfrns3(successrations3[station->m_state->m_address], globalchanutilns3, idx, lastmcsperaddress[station->m_state->m_address],station->m_state->m_address));
 
             }
 
-            std::cout<<Simulator::Now ()<<" TIME\n";
-            //for ns3 M5P model
 
 
-          //}
+
+
             station->m_groupsTable[groupId].m_ratesTable[i].lasttoprevNumRateAttempt = station->m_groupsTable[groupId].m_ratesTable[i].prevNumRateAttempt;
             station->m_groupsTable[groupId].m_ratesTable[i].lasttoprevNumRateSuccess = station->m_groupsTable[groupId].m_ratesTable[i].prevNumRateSuccess;
             previous_historical_bytes[station->m_state->m_address] = historical_bytes[station->m_state->m_address];
-            //of<<"\nChannel Utilization = "<<globalchanutil<<"\n";
-            //amsdusizeperstationlast = amsdusizeperstation;
+
 
         }
         globalchanutil = 0;
     }
-    lastmcsperaddress[station->m_state->m_address] = station->m_maxTpRate;
 
-    //std::cout<<"Global Channel Utilization "<<globalchanutil<<"\n";
+    lastmcsperaddress[station->m_state->m_address] = station->m_maxTpRate;
 
 
 }
+
+
+
 uint16_t
 MinstrelHtWifiManager::GetIndex (uint8_t groupId, uint8_t rateId)
 {
@@ -2019,15 +2142,16 @@ MinstrelHtWifiManager::GetVhtGroupId (uint8_t txstreams, uint8_t sgi, uint16_t c
 }
 
 uint16_t
-MinstrelHtWifiManager::GetLowestIndex (MinstrelHtWifiRemoteStation *station)
+MinstrelHtWifiManager::GetLowestIndex (MinstrelHtWifiRemoteStation *station)//HARD
 {
   NS_LOG_FUNCTION (this << station);
 
   uint8_t groupId = 0;
   uint8_t rateId = 0;
+  //NS_LOG_DEBUG();
   while (groupId < m_numGroups && !station->m_groupsTable[groupId].m_supported)
     {
-      groupId++;
+      groupId++;//increase groupid till it reaches the numgroups
     }
   while (rateId < m_numRates && !station->m_groupsTable[groupId].m_ratesTable[rateId].supported)
     {
@@ -2075,9 +2199,9 @@ MinstrelHtWifiManager::GetHtDeviceMcsList (void) const
 
   for (uint8_t i = 0; i < phy->GetNMcs (); i++)// phy->GetNMcs ();
     {
-
+      ///std::cout<<std::to_string(phy->GetNMcs ())<<"no of mcs\n";
       NS_LOG_DEBUG("inside GetHtDeviceMcsList");
-      WifiMode mode = phy->GetMcs (i);
+      WifiMode mode = phy->GetMcs (i);//hard 7=i
       if (mode.GetModulationClass () == WIFI_MOD_CLASS_HT)
         {
           htMcsList.push_back (mode);
@@ -2101,18 +2225,18 @@ std::tuple<int, float> MinstrelHtWifiManager::m5pmodelns3 (float succratio, floa
 {
   float expected_th = 0;
 
-  //std::cout<<"ns3";
+  ///std::cout<<"ns3";
   std::map<int,float> ::iterator expit;
   //MCS0
   if (mcsvalue == 0)
   {
-    std::cout<<"The MCS value is "<<mcsvalue<<"\n";
+    //////std::cout<<"The MCS value is "<<mcsvalue<<"\n";
     for(expit = mcs0agglengthexpth.begin(); expit != mcs0agglengthexpth.end(); expit++)
     {
       if(expit->first == 550)
       {
           expected_th = 0.1065*succratio;
-          std::cout<<"The expected throughput is "<<expected_th<<" for aggregation length:"<<expit->first<<"\n";
+          //////std::cout<<"The expected throughput is "<<expected_th<<" for aggregation length:"<<expit->first<<"\n";
           expit->second = expected_th;
       }
 
@@ -2121,19 +2245,19 @@ std::tuple<int, float> MinstrelHtWifiManager::m5pmodelns3 (float succratio, floa
         if (succratio > 78.819)
         {
           expected_th = 7.4693 * gcu+ 0.11 * succratio- 4.6582;
-          std::cout<<"The expected throughput is "<<expected_th<<" for aggregation length:"<<expit->first<<"\n";
+          //////std::cout<<"The expected throughput is "<<expected_th<<" for aggregation length:"<<expit->first<<"\n";
           expit->second = expected_th;
         }
         if (gcu >0.614)
         {
           expected_th = 0.5711 * gcu + 0.1122 * succratio	- 0.3711;
-          std::cout<<"The expected throughput is "<<expected_th<<" for aggregation length:"<<expit->first<<"\n";
+          //////std::cout<<"The expected throughput is "<<expected_th<<" for aggregation length:"<<expit->first<<"\n";
           expit->second = expected_th;
         }
         else
         {
           expected_th = 0.1065*succratio;
-          std::cout<<"The expected throughput is "<<expected_th<<" for aggregation length:"<<expit->first<<"\n";
+          //////std::cout<<"The expected throughput is "<<expected_th<<" for aggregation length:"<<expit->first<<"\n";
           expit->second = expected_th;
         }
       }
@@ -2143,13 +2267,13 @@ std::tuple<int, float> MinstrelHtWifiManager::m5pmodelns3 (float succratio, floa
         if (succratio > 91.498 && gcu > 0.672)
         {
           expected_th = 0.8746 * gcu + 0.1072 * succratio - 0.1556;
-          std::cout<<"The expected throughput is "<<expected_th<<" for aggregation length:"<<expit->first<<"\n";
+          //////std::cout<<"The expected throughput is "<<expected_th<<" for aggregation length:"<<expit->first<<"\n";
           expit->second = expected_th;
         }
         else
         {
           expected_th = 4.3735 * gcu+ 0.1079 * succratio- 2.8601;
-          std::cout<<"The expected throughput is "<<expected_th<<" for aggregation length:"<<expit->first<<"\n";
+          //////std::cout<<"The expected throughput is "<<expected_th<<" for aggregation length:"<<expit->first<<"\n";
           expit->second = expected_th;
         }
       }
@@ -2159,19 +2283,19 @@ std::tuple<int, float> MinstrelHtWifiManager::m5pmodelns3 (float succratio, floa
         if (succratio > 93.638 && gcu <= 0.795 && gcu>0.698)
         {
           expected_th = 0.841 * gcu	+ 0.0979 * succratio + 0.7236;
-          std::cout<<"The expected throughput is "<<expected_th<<" for aggregation length:"<<expit->first<<"\n";
+          //////std::cout<<"The expected throughput is "<<expected_th<<" for aggregation length:"<<expit->first<<"\n";
           expit->second = expected_th;
         }
         if (succratio <= 96.612)
         {
           expected_th = 3.6633 * gcu+ 0.1024 * succratio- 1.9955;
-          std::cout<<"The expected throughput is "<<expected_th<<" for aggregation length:"<<expit->first<<"\n";
+          //////std::cout<<"The expected throughput is "<<expected_th<<" for aggregation length:"<<expit->first<<"\n";
           expit->second = expected_th;
         }
         else
         {
           expected_th =  -0.1888 *gcu	+ 0.1118 * succratio+ 0.1685;
-          std::cout<<"The expected throughput is "<<expected_th<<" for aggregation length:"<<expit->first<<"\n";
+          //////std::cout<<"The expected throughput is "<<expected_th<<" for aggregation length:"<<expit->first<<"\n";
           expit->second = expected_th;
         }
       }
@@ -2182,13 +2306,13 @@ std::tuple<int, float> MinstrelHtWifiManager::m5pmodelns3 (float succratio, floa
   //MCS1
   if (mcsvalue == 1)
   {
-    std::cout<<"The MCS value is "<<mcsvalue<<"\n";
+    //////std::cout<<"The MCS value is "<<mcsvalue<<"\n";
     for(expit = mcs1agglengthexpth.begin(); expit != mcs1agglengthexpth.end(); expit++)
     {
       if(expit->first == 550)
       {
           expected_th = 0.2044*succratio;
-          std::cout<<"The expected throughput is "<<expected_th<<" for aggregation length:"<<expit->first<<"\n";
+          //////std::cout<<"The expected throughput is "<<expected_th<<" for aggregation length:"<<expit->first<<"\n";
           expit->second = expected_th;
       }
 
@@ -2197,13 +2321,13 @@ std::tuple<int, float> MinstrelHtWifiManager::m5pmodelns3 (float succratio, floa
         if (succratio > 79.686)
         {
           expected_th = 16.7195 * gcu + 0.2136 * succratio- 9.7194;
-          std::cout<<"The expected throughput is "<<expected_th<<" for aggregation length:"<<expit->first<<"\n";
+          //////std::cout<<"The expected throughput is "<<expected_th<<" for aggregation length:"<<expit->first<<"\n";
           expit->second = expected_th;
         }
         else
         {
           expected_th = 0.2143 * succratio- 0.0133;
-          std::cout<<"The expected throughput is "<<expected_th<<" for aggregation length:"<<expit->first<<"\n";
+          //////std::cout<<"The expected throughput is "<<expected_th<<" for aggregation length:"<<expit->first<<"\n";
           expit->second = expected_th;
         }
       }
@@ -2213,25 +2337,25 @@ std::tuple<int, float> MinstrelHtWifiManager::m5pmodelns3 (float succratio, floa
         if (succratio > 90.82 && gcu > 0.673)
         {
           expected_th = 0.8746 * gcu + 0.1072 * succratio - 0.1556;
-          std::cout<<"The expected throughput is "<<expected_th<<" for aggregation length:"<<expit->first<<"\n";
+          //////std::cout<<"The expected throughput is "<<expected_th<<" for aggregation length:"<<expit->first<<"\n";
           expit->second = expected_th;
         }
         if (succratio > 85.741 && gcu <= 97.17)
         {
           expected_th = 10.8694 * gcu	+ 0.207 * succratio	- 6.7998;
-          std::cout<<"The expected throughput is "<<expected_th<<" for aggregation length:"<<expit->first<<"\n";
+          //////std::cout<<"The expected throughput is "<<expected_th<<" for aggregation length:"<<expit->first<<"\n";
           expit->second = expected_th;
         }
         if (succratio > 90.46)
         {
           expected_th = 4.8577 * gcu	+ 0.2104 * succratio- 3.2008;
-          std::cout<<"The expected throughput is "<<expected_th<<" for aggregation length:"<<expit->first<<"\n";
+          //////std::cout<<"The expected throughput is "<<expected_th<<" for aggregation length:"<<expit->first<<"\n";
           expit->second = expected_th;
         }
         else
         {
           expected_th = 0.2044 * succratio+ 0.0009;
-          std::cout<<"The expected throughput is "<<expected_th<<" for aggregation length:"<<expit->first<<"\n";
+          //////std::cout<<"The expected throughput is "<<expected_th<<" for aggregation length:"<<expit->first<<"\n";
           expit->second = expected_th;
         }
       }
@@ -2241,37 +2365,37 @@ std::tuple<int, float> MinstrelHtWifiManager::m5pmodelns3 (float succratio, floa
         if (succratio > 97.881 && gcu <= 0.798 && gcu>0.776)
         {
           expected_th = 1.6119 * gcu+ 0.01 *succratio+ 18.8831;
-          std::cout<<"The expected throughput is "<<expected_th<<" for aggregation length:"<<expit->first<<"\n";
+          //////std::cout<<"The expected throughput is "<<expected_th<<" for aggregation length:"<<expit->first<<"\n";
           expit->second = expected_th;
         }
         if (succratio <= 97.785)
         {
           expected_th = 9.7826 * gcu+ 0.207 * succratio	- 6.5827;
-          std::cout<<"The expected throughput is "<<expected_th<<" for aggregation length:"<<expit->first<<"\n";
+          //////std::cout<<"The expected throughput is "<<expected_th<<" for aggregation length:"<<expit->first<<"\n";
           expit->second = expected_th;
         }
         if (gcu <= 0.785 && gcu>0.752)
         {
           expected_th = 1.3728 * gcu+ 0.1229 * succratio+ 7.7557;
-          std::cout<<"The expected throughput is "<<expected_th<<" for aggregation length:"<<expit->first<<"\n";
+          //////std::cout<<"The expected throughput is "<<expected_th<<" for aggregation length:"<<expit->first<<"\n";
           expit->second = expected_th;
         }
         if (gcu <= 0.771)
         {
           expected_th = 0.0483 * succratio+ 16.5091;
-          std::cout<<"The expected throughput is "<<expected_th<<" for aggregation length:"<<expit->first<<"\n";
+          //////std::cout<<"The expected throughput is "<<expected_th<<" for aggregation length:"<<expit->first<<"\n";
           expit->second = expected_th;
         }
         if (gcu > 0.693)
         {
           expected_th = 2.9636 * gcu+ 0.2102 *succratio - 1.7841;
-          std::cout<<"The expected throughput is "<<expected_th<<" for aggregation length:"<<expit->first<<"\n";
+          //////std::cout<<"The expected throughput is "<<expected_th<<" for aggregation length:"<<expit->first<<"\n";
           expit->second = expected_th;
         }
         else
         {
           expected_th =  20.0043;
-          std::cout<<"The expected throughput is "<<expected_th<<" for aggregation length:"<<expit->first<<"\n";
+          //////std::cout<<"The expected throughput is "<<expected_th<<" for aggregation length:"<<expit->first<<"\n";
           expit->second = expected_th;
         }
       }
@@ -2284,13 +2408,13 @@ std::tuple<int, float> MinstrelHtWifiManager::m5pmodelns3 (float succratio, floa
 //MCS2
   if (mcsvalue == 2)
   {
-    std::cout<<"The MCS value is "<<mcsvalue<<"\n";
+    //////std::cout<<"The MCS value is "<<mcsvalue<<"\n";
     for(expit = mcs2agglengthexpth.begin(); expit != mcs2agglengthexpth.end(); expit++)
     {
       if(expit->first == 550)
       {
           expected_th =  0.2935 * succratio;
-          std::cout<<"The expected throughput is "<<expected_th<<" for aggregation length:"<<expit->first<<"\n";
+          //////std::cout<<"The expected throughput is "<<expected_th<<" for aggregation length:"<<expit->first<<"\n";
           expit->second = expected_th;
       }
 
@@ -2299,13 +2423,13 @@ std::tuple<int, float> MinstrelHtWifiManager::m5pmodelns3 (float succratio, floa
         if (succratio > 59.744)
         {
           expected_th = 26.3252 * gcu	+ 0.3032 * succratio- 13.5384;
-          std::cout<<"The expected throughput is "<<expected_th<<" for aggregation length:"<<expit->first<<"\n";
+          //////std::cout<<"The expected throughput is "<<expected_th<<" for aggregation length:"<<expit->first<<"\n";
           expit->second = expected_th;
         }
         else
         {
           expected_th =0.8266 * gcu	+ 0.3062 * succratio- 0.4331;
-          std::cout<<"The expected throughput is "<<expected_th<<" for aggregation length:"<<expit->first<<"\n";
+          //////std::cout<<"The expected throughput is "<<expected_th<<" for aggregation length:"<<expit->first<<"\n";
           expit->second = expected_th;
         }
       }
@@ -2315,19 +2439,19 @@ std::tuple<int, float> MinstrelHtWifiManager::m5pmodelns3 (float succratio, floa
         if (succratio > 92.165 && succratio <= 97.568 && gcu > 0.59)
         {
           expected_th = 1.0879 * gcu+ 0.2707 *succratio	+ 2.9104;
-          std::cout<<"The expected throughput is "<<expected_th<<" for aggregation length:"<<expit->first<<"\n";
+          //////std::cout<<"The expected throughput is "<<expected_th<<" for aggregation length:"<<expit->first<<"\n";
           expit->second = expected_th;
         }
         if (succratio > 86.382 && gcu > 0.606)
         {
           expected_th =  3.2049 * gcu	+ 0.0235 * succratio+ 25.7931;
-          std::cout<<"The expected throughput is "<<expected_th<<" for aggregation length:"<<expit->first<<"\n";
+          //////std::cout<<"The expected throughput is "<<expected_th<<" for aggregation length:"<<expit->first<<"\n";
           expit->second = expected_th;
         }
         else
         {
           expected_th = 7.462 * gcu + 0.2943 * succratio- 4.2939;
-          std::cout<<"The expected throughput is "<<expected_th<<" for aggregation length:"<<expit->first<<"\n";
+          //////std::cout<<"The expected throughput is "<<expected_th<<" for aggregation length:"<<expit->first<<"\n";
           expit->second = expected_th;
         }
       }
@@ -2337,13 +2461,13 @@ std::tuple<int, float> MinstrelHtWifiManager::m5pmodelns3 (float succratio, floa
         if (succratio <= 98.78 && gcu <= 0.795 && gcu > 0.677)
         {
           expected_th = 10.8869 * gcu	+ 0.2995 * succratio- 7.1359;
-          std::cout<<"The expected throughput is "<<expected_th<<" for aggregation length:"<<expit->first<<"\n";
+          //////std::cout<<"The expected throughput is "<<expected_th<<" for aggregation length:"<<expit->first<<"\n";
           expit->second = expected_th;
         }
         else
         {
           expected_th =  12.6973 *gcu	+ 0.2929 * succratio - 8.0281;
-          std::cout<<"The expected throughput is "<<expected_th<<" for aggregation length:"<<expit->first<<"\n";
+          //////std::cout<<"The expected throughput is "<<expected_th<<" for aggregation length:"<<expit->first<<"\n";
           expit->second = expected_th;
         }
       }
@@ -2354,13 +2478,13 @@ std::tuple<int, float> MinstrelHtWifiManager::m5pmodelns3 (float succratio, floa
 //MCS3
   if (mcsvalue == 3)
   {
-    std::cout<<"The MCS value is "<<mcsvalue<<"\n";
+    //////std::cout<<"The MCS value is "<<mcsvalue<<"\n";
     for(expit = mcs3agglengthexpth.begin(); expit != mcs3agglengthexpth.end(); expit++)
     {
       if(expit->first == 550)
       {
           expected_th = 0.3805*succratio;
-          std::cout<<"The expected throughput is "<<expected_th<<" for aggregation length:"<<expit->first<<"\n";
+          //////std::cout<<"The expected throughput is "<<expected_th<<" for aggregation length:"<<expit->first<<"\n";
           expit->second = expected_th;
       }
 
@@ -2369,13 +2493,13 @@ std::tuple<int, float> MinstrelHtWifiManager::m5pmodelns3 (float succratio, floa
         if (succratio > 53.832)
         {
           expected_th =  0.3923 * succratio- 0.7937;
-          std::cout<<"The expected throughput is "<<expected_th<<" for aggregation length:"<<expit->first<<"\n";
+          //////std::cout<<"The expected throughput is "<<expected_th<<" for aggregation length:"<<expit->first<<"\n";
           expit->second = expected_th;
         }
         else
         {
           expected_th = -0.011 * gcu+ 0.3879 * succratio- 0.0008;
-          std::cout<<"The expected throughput is "<<expected_th<<" for aggregation length:"<<expit->first<<"\n";
+          //////std::cout<<"The expected throughput is "<<expected_th<<" for aggregation length:"<<expit->first<<"\n";
           expit->second = expected_th;
         }
       }
@@ -2384,7 +2508,7 @@ std::tuple<int, float> MinstrelHtWifiManager::m5pmodelns3 (float succratio, floa
       {
 
           expected_th = 0.3861 * succratio+ 0.0068;
-          std::cout<<"The expected throughput is "<<expected_th<<" for aggregation length:"<<expit->first<<"\n";
+          //////std::cout<<"The expected throughput is "<<expected_th<<" for aggregation length:"<<expit->first<<"\n";
           expit->second = expected_th;
 
       }
@@ -2394,19 +2518,19 @@ std::tuple<int, float> MinstrelHtWifiManager::m5pmodelns3 (float succratio, floa
         if (succratio > 98.993)
         {
           expected_th = 0.0497 * succratio+ 33.6317;
-          std::cout<<"The expected throughput is "<<expected_th<<" for aggregation length:"<<expit->first<<"\n";
+          //////std::cout<<"The expected throughput is "<<expected_th<<" for aggregation length:"<<expit->first<<"\n";
           expit->second = expected_th;
         }
         if (succratio <= 81.211)
         {
           expected_th =0.3888 * succratio	- 0.0021;
-          std::cout<<"The expected throughput is "<<expected_th<<" for aggregation length:"<<expit->first<<"\n";
+          //////std::cout<<"The expected throughput is "<<expected_th<<" for aggregation length:"<<expit->first<<"\n";
           expit->second = expected_th;
         }
         else
         {
           expected_th =  0.3339 * succratio+ 4.6991;
-          std::cout<<"The expected throughput is "<<expected_th<<" for aggregation length:"<<expit->first<<"\n";
+          //////std::cout<<"The expected throughput is "<<expected_th<<" for aggregation length:"<<expit->first<<"\n";
           expit->second = expected_th;
         }
       }
@@ -2417,13 +2541,13 @@ std::tuple<int, float> MinstrelHtWifiManager::m5pmodelns3 (float succratio, floa
 //MCS4
   if (mcsvalue == 4)
   {
-    std::cout<<"The MCS value is "<<mcsvalue<<"\n";
+    //////std::cout<<"The MCS value is "<<mcsvalue<<"\n";
     for(expit = mcs4agglengthexpth.begin(); expit != mcs4agglengthexpth.end(); expit++)
     {
       if(expit->first == 550)
       {
           expected_th = 0.5327*succratio;
-          std::cout<<"The expected throughput is "<<expected_th<<" for aggregation length:"<<expit->first<<"\n";
+          //////std::cout<<"The expected throughput is "<<expected_th<<" for aggregation length:"<<expit->first<<"\n";
           expit->second = expected_th;
       }
 
@@ -2431,7 +2555,7 @@ std::tuple<int, float> MinstrelHtWifiManager::m5pmodelns3 (float succratio, floa
       {
 
           expected_th = 0.5375 * succratio- 0.0447;
-          std::cout<<"The expected throughput is "<<expected_th<<" for aggregation length:"<<expit->first<<"\n";
+          //////std::cout<<"The expected throughput is "<<expected_th<<" for aggregation length:"<<expit->first<<"\n";
           expit->second = expected_th;
 
       }
@@ -2440,7 +2564,7 @@ std::tuple<int, float> MinstrelHtWifiManager::m5pmodelns3 (float succratio, floa
       {
 
           expected_th = 2.1708 * gcu	+ 0.5375 * succratio- 1.0886;
-          std::cout<<"The expected throughput is "<<expected_th<<" for aggregation length:"<<expit->first<<"\n";
+          //////std::cout<<"The expected throughput is "<<expected_th<<" for aggregation length:"<<expit->first<<"\n";
           expit->second = expected_th;
 
       }
@@ -2450,19 +2574,19 @@ std::tuple<int, float> MinstrelHtWifiManager::m5pmodelns3 (float succratio, floa
         if (succratio >99.552)
         {
           expected_th = 20.7865 * gcu+ 0.504 * succratio- 9.3981;
-          std::cout<<"The expected throughput is "<<expected_th<<" for aggregation length:"<<expit->first<<"\n";
+          //////std::cout<<"The expected throughput is "<<expected_th<<" for aggregation length:"<<expit->first<<"\n";
           expit->second = expected_th;
         }
         if (gcu <= 0.654)
         {
           expected_th = 1.0183 * gcu+ 0.4926 *succratio	+ 3.9707;
-          std::cout<<"The expected throughput is "<<expected_th<<" for aggregation length:"<<expit->first<<"\n";
+          //////std::cout<<"The expected throughput is "<<expected_th<<" for aggregation length:"<<expit->first<<"\n";
           expit->second = expected_th;
         }
         else
         {
           expected_th =  0.5409 * succratio	- 0.012;
-          std::cout<<"The expected throughput is "<<expected_th<<" for aggregation length:"<<expit->first<<"\n";
+          //////std::cout<<"The expected throughput is "<<expected_th<<" for aggregation length:"<<expit->first<<"\n";
           expit->second = expected_th;
         }
       }
@@ -2473,13 +2597,13 @@ std::tuple<int, float> MinstrelHtWifiManager::m5pmodelns3 (float succratio, floa
   //MCS5
   if (mcsvalue == 5)
   {
-    std::cout<<"The MCS value is "<<mcsvalue<<"\n";
+    //////std::cout<<"The MCS value is "<<mcsvalue<<"\n";
     for(expit = mcs5agglengthexpth.begin(); expit != mcs5agglengthexpth.end(); expit++)
     {
       if(expit->first == 550)
       {
           expected_th = 0.6632*succratio;
-          std::cout<<"The expected throughput is "<<expected_th<<" for aggregation length:"<<expit->first<<"\n";
+          //////std::cout<<"The expected throughput is "<<expected_th<<" for aggregation length:"<<expit->first<<"\n";
           expit->second = expected_th;
       }
 
@@ -2487,7 +2611,7 @@ std::tuple<int, float> MinstrelHtWifiManager::m5pmodelns3 (float succratio, floa
       {
 
           expected_th = 44.6962 * gcu	+ 0.6693 * succratio- 15.0703;
-          std::cout<<"The expected throughput is "<<expected_th<<" for aggregation length:"<<expit->first<<"\n";
+          //////std::cout<<"The expected throughput is "<<expected_th<<" for aggregation length:"<<expit->first<<"\n";
           expit->second = expected_th;
 
       }
@@ -2497,25 +2621,25 @@ std::tuple<int, float> MinstrelHtWifiManager::m5pmodelns3 (float succratio, floa
         if (succratio > 96.875 && gcu > 0.499)
         {
           expected_th = 2.5334 * gcu	+ 0.0791 * succratio+ 57.4858;
-          std::cout<<"The expected throughput is "<<expected_th<<" for aggregation length:"<<expit->first<<"\n";
+          //////std::cout<<"The expected throughput is "<<expected_th<<" for aggregation length:"<<expit->first<<"\n";
           expit->second = expected_th;
         }
         if (succratio > 51.569 && succratio <= 97.661 && gcu <= 0.499)
         {
           expected_th = -10.7856 * gcu+ 0.1185 *succratio	+ 56.4639;
-          std::cout<<"The expected throughput is "<<expected_th<<" for aggregation length:"<<expit->first<<"\n";
+          //////std::cout<<"The expected throughput is "<<expected_th<<" for aggregation length:"<<expit->first<<"\n";
           expit->second = expected_th;
         }
         if (succratio < 51.569)
         {
           expected_th = 0.6831 * succratio- 0.0727;
-          std::cout<<"The expected throughput is "<<expected_th<<" for aggregation length:"<<expit->first<<"\n";
+          //////std::cout<<"The expected throughput is "<<expected_th<<" for aggregation length:"<<expit->first<<"\n";
           expit->second = expected_th;
         }
         else
         {
           expected_th = 0.6947 * succratio;
-          std::cout<<"The expected throughput is "<<expected_th<<" for aggregation length:"<<expit->first<<"\n";
+          //////std::cout<<"The expected throughput is "<<expected_th<<" for aggregation length:"<<expit->first<<"\n";
           expit->second = expected_th;
         }
       }
@@ -2525,43 +2649,43 @@ std::tuple<int, float> MinstrelHtWifiManager::m5pmodelns3 (float succratio, floa
         if (succratio > 99.708 && gcu <= 0.626)
         {
           expected_th = 6.9998 * gcu	+ 0.0932 * succratio	+ 53.8532;
-          std::cout<<"The expected throughput is "<<expected_th<<" for aggregation length:"<<expit->first<<"\n";
+          //////std::cout<<"The expected throughput is "<<expected_th<<" for aggregation length:"<<expit->first<<"\n";
           expit->second = expected_th;
         }
         if (gcu > 0.626 && gcu <= 0.635)
         {
           expected_th = -10.4231 * gcu+ 0.0416 * succratio+ 70.2946;
-          std::cout<<"The expected throughput is "<<expected_th<<" for aggregation length:"<<expit->first<<"\n";
+          //////std::cout<<"The expected throughput is "<<expected_th<<" for aggregation length:"<<expit->first<<"\n";
           expit->second = expected_th;
         }
         if (gcu > 0.628)
         {
           expected_th = 4.761 * gcu	+ 0.0808 * succratio+ 56.6005;
-          std::cout<<"The expected throughput is "<<expected_th<<" for aggregation length:"<<expit->first<<"\n";
+          //////std::cout<<"The expected throughput is "<<expected_th<<" for aggregation length:"<<expit->first<<"\n";
           expit->second = expected_th;
         }
         if (succratio <= 98.705 && gcu <= 0.585)
         {
           expected_th = 7.4106 * gcu+ 0.4835 * succratio+ 13.544;
-          std::cout<<"The expected throughput is "<<expected_th<<" for aggregation length:"<<expit->first<<"\n";
+          //////std::cout<<"The expected throughput is "<<expected_th<<" for aggregation length:"<<expit->first<<"\n";
           expit->second = expected_th;
         }
         if (succratio <= 96.831)
         {
           expected_th = 12.9709 * gcu	+ 0.1891 * succratio+ 39.7829;
-          std::cout<<"The expected throughput is "<<expected_th<<" for aggregation length:"<<expit->first<<"\n";
+          //////std::cout<<"The expected throughput is "<<expected_th<<" for aggregation length:"<<expit->first<<"\n";
           expit->second = expected_th;
         }
         if (gcu <= 0.585)
         {
           expected_th = 12.0964 * gcu+ 59.2605;
-          std::cout<<"The expected throughput is "<<expected_th<<" for aggregation length:"<<expit->first<<"\n";
+          //////std::cout<<"The expected throughput is "<<expected_th<<" for aggregation length:"<<expit->first<<"\n";
           expit->second = expected_th;
         }
         else
         {
           expected_th =   0.6949 * succratio- 0.0143;
-          std::cout<<"The expected throughput is "<<expected_th<<" for aggregation length:"<<expit->first<<"\n";
+          //////std::cout<<"The expected throughput is "<<expected_th<<" for aggregation length:"<<expit->first<<"\n";
           expit->second = expected_th;
         }
       }
@@ -2572,20 +2696,20 @@ std::tuple<int, float> MinstrelHtWifiManager::m5pmodelns3 (float succratio, floa
   //MCS6
   if (mcsvalue == 6)
   {
-    std::cout<<"The MCS value is "<<mcsvalue<<"\n";
+    //////std::cout<<"The MCS value is "<<mcsvalue<<"\n";
     for(expit = mcs6agglengthexpth.begin(); expit != mcs6agglengthexpth.end(); expit++)
     {
       if(expit->first == 550)
       {
           expected_th = 0.7262*succratio;
-          std::cout<<"The expected throughput is "<<expected_th<<" for aggregation length:"<<expit->first<<"\n";
+          //////std::cout<<"The expected throughput is "<<expected_th<<" for aggregation length:"<<expit->first<<"\n";
           expit->second = expected_th;
       }
 
       if(expit->first == 1024)
       {
           expected_th = -53.9376 * gcu+ 0.7194 * succratio+ 16.9493;
-          std::cout<<"The expected throughput is "<<expected_th<<" for aggregation length:"<<expit->first<<"\n";
+          //////std::cout<<"The expected throughput is "<<expected_th<<" for aggregation length:"<<expit->first<<"\n";
           expit->second = expected_th;
 
       }
@@ -2595,19 +2719,19 @@ std::tuple<int, float> MinstrelHtWifiManager::m5pmodelns3 (float succratio, floa
         if (succratio > 51.788 && succratio <= 96.657)
         {
           expected_th = -0.2507 * gcu	+ 0.6994 *succratio	+ 2.3779;
-          std::cout<<"The expected throughput is "<<expected_th<<" for aggregation length:"<<expit->first<<"\n";
+          //////std::cout<<"The expected throughput is "<<expected_th<<" for aggregation length:"<<expit->first<<"\n";
           expit->second = expected_th;
         }
         if (succratio > 61.563)
         {
           expected_th = -0.5177 * gcu	+ 0.0663 * succratio+ 65.3986;
-          std::cout<<"The expected throughput is "<<expected_th<<" for aggregation length:"<<expit->first<<"\n";
+          //////std::cout<<"The expected throughput is "<<expected_th<<" for aggregation length:"<<expit->first<<"\n";
           expit->second = expected_th;
         }
         else
         {
           expected_th = -1.6826 * gcu	+ 0.7299 * succratio+ 0.662;
-          std::cout<<"The expected throughput is "<<expected_th<<" for aggregation length:"<<expit->first<<"\n";
+          //////std::cout<<"The expected throughput is "<<expected_th<<" for aggregation length:"<<expit->first<<"\n";
           expit->second = expected_th;
         }
       }
@@ -2617,25 +2741,25 @@ std::tuple<int, float> MinstrelHtWifiManager::m5pmodelns3 (float succratio, floa
         if (gcu <= 0.583)
         {
           expected_th = -24.731 * gcu+ 0.6963 * succratio	+ 15.9811;
-          std::cout<<"The expected throughput is "<<expected_th<<" for aggregation length:"<<expit->first<<"\n";
+          //////std::cout<<"The expected throughput is "<<expected_th<<" for aggregation length:"<<expit->first<<"\n";
           expit->second = expected_th;
         }
         if (gcu <= 0.603)
         {
           expected_th = 6.418 * gcu+ 0.6908 * succratio	- 0.0373;
-          std::cout<<"The expected throughput is "<<expected_th<<" for aggregation length:"<<expit->first<<"\n";
+          //////std::cout<<"The expected throughput is "<<expected_th<<" for aggregation length:"<<expit->first<<"\n";
           expit->second = expected_th;
         }
         if (gcu <= 0.612)
         {
           expected_th = 10.2135 * gcu	+ 0.7072 * succratio- 3.4352;
-          std::cout<<"The expected throughput is "<<expected_th<<" for aggregation length:"<<expit->first<<"\n";
+          //////std::cout<<"The expected throughput is "<<expected_th<<" for aggregation length:"<<expit->first<<"\n";
           expit->second = expected_th;
         }
         else
         {
           expected_th =  -0.0961 * gcu+ 0.7391 * succratio+ 0.0014;
-          std::cout<<"The expected throughput is "<<expected_th<<" for aggregation length:"<<expit->first<<"\n";
+          //////std::cout<<"The expected throughput is "<<expected_th<<" for aggregation length:"<<expit->first<<"\n";
           expit->second = expected_th;
         }
       }
@@ -2646,20 +2770,20 @@ std::tuple<int, float> MinstrelHtWifiManager::m5pmodelns3 (float succratio, floa
   //MCS7
   if (mcsvalue == 7)
   {
-    std::cout<<"The MCS value is "<<mcsvalue<<"\n";
+    //////std::cout<<"The MCS value is "<<mcsvalue<<"\n";
     for(expit = mcs7agglengthexpth.begin(); expit != mcs7agglengthexpth.end(); expit++)
     {
       if(expit->first == 550)
       {
           expected_th = 0.7719*succratio;
-          std::cout<<"The expected throughput is "<<expected_th<<" for aggregation length:"<<expit->first<<"\n";
+          //////std::cout<<"The expected throughput is "<<expected_th<<" for aggregation length:"<<expit->first<<"\n";
           expit->second = expected_th;
       }
 
       if(expit->first == 1024)
       {
           expected_th =98.8624 * gcu+ 0.7832 * succratio- 29.3012;
-          std::cout<<"The expected throughput is "<<expected_th<<" for aggregation length:"<<expit->first<<"\n";
+          //////std::cout<<"The expected throughput is "<<expected_th<<" for aggregation length:"<<expit->first<<"\n";
           expit->second = expected_th;
 
       }
@@ -2669,13 +2793,13 @@ std::tuple<int, float> MinstrelHtWifiManager::m5pmodelns3 (float succratio, floa
         if (succratio > 49.435)
         {
           expected_th = 10.1735 * gcu+ 0.7847 * succratio- 4.7744;
-          std::cout<<"The expected throughput is "<<expected_th<<" for aggregation length:"<<expit->first<<"\n";
+          //////std::cout<<"The expected throughput is "<<expected_th<<" for aggregation length:"<<expit->first<<"\n";
           expit->second = expected_th;
         }
         else
         {
           expected_th = 0.7122 * gcu+ 0.7716 * succratio- 0.2459;
-          std::cout<<"The expected throughput is "<<expected_th<<" for aggregation length:"<<expit->first<<"\n";
+          //////std::cout<<"The expected throughput is "<<expected_th<<" for aggregation length:"<<expit->first<<"\n";
           expit->second = expected_th;
         }
       }
@@ -2685,25 +2809,25 @@ std::tuple<int, float> MinstrelHtWifiManager::m5pmodelns3 (float succratio, floa
         if (succratio > 99.883 && gcu>0.576)
         {
           expected_th = 40.1983 * gcu	+ 0.344 * succratio	+ 19.7195;
-          std::cout<<"The expected throughput is "<<expected_th<<" for aggregation length:"<<expit->first<<"\n";
+          //////std::cout<<"The expected throughput is "<<expected_th<<" for aggregation length:"<<expit->first<<"\n";
           expit->second = expected_th;
         }
         if (gcu <= 0.544)
         {
           expected_th = 2.2553 * gcu+ 1.1655 * succratio- 40.4109;
-          std::cout<<"The expected throughput is "<<expected_th<<" for aggregation length:"<<expit->first<<"\n";
+          //////std::cout<<"The expected throughput is "<<expected_th<<" for aggregation length:"<<expit->first<<"\n";
           expit->second = expected_th;
         }
         if (gcu <= 0.571)
         {
           expected_th = -40.6888 * gcu+ 102.3039;
-          std::cout<<"The expected throughput is "<<expected_th<<" for aggregation length:"<<expit->first<<"\n";
+          //////std::cout<<"The expected throughput is "<<expected_th<<" for aggregation length:"<<expit->first<<"\n";
           expit->second = expected_th;
         }
         else
         {
           expected_th =   0.7803 *succratio	+ 0.0278;
-          std::cout<<"The expected throughput is "<<expected_th<<" for aggregation length:"<<expit->first<<"\n";
+          //////std::cout<<"The expected throughput is "<<expected_th<<" for aggregation length:"<<expit->first<<"\n";
           expit->second = expected_th;
         }
       }
@@ -2751,7 +2875,7 @@ std::tuple<int, float> MinstrelHtWifiManager::m5pmodelns3 (float succratio, floa
 
       if(bannedagglengthcounterperstation[stadd][agglengthtoindexmap[previousaggregationlengthperstation[stadd]]] == 0)
       {
-        std::cout<<"\n";
+        //////std::cout<<"\n";
         bannedagglengthcounterperstation[stadd][agglengthtoindexmap[previousaggregationlengthperstation[stadd]]] = 10;
 
       }
@@ -2767,7 +2891,7 @@ std::tuple<int, float> MinstrelHtWifiManager::m5pmodelns3 (float succratio, floa
     {
       if(bannedagglengthcounterperstation[stadd][agglengthtoindexmap[highexpagglength]] == 0)
       {
-        std::cout<<"\n";
+        //////std::cout<<"\n";
         bannedagglengthcounterperstation[stadd][agglengthtoindexmap[highexpagglength]] = 10;
 
       }
@@ -2808,7 +2932,7 @@ std::tuple<int, float> MinstrelHtWifiManager::m5pmodelns3 (float succratio, floa
     }
   }
 
-  std::cout<<"The expected throughput is "<<highestexp<<" for aggregation length:"<<highexpagglength<<"\n";
+  //////std::cout<<"The expected throughput is "<<highestexp<<" for aggregation length:"<<highexpagglength<<"\n";
   return std::make_tuple(highexpagglength,highestexp);
 }
 
@@ -2821,20 +2945,21 @@ int MinstrelHtWifiManager::comparelastandcurrent (float succratio, float gcu, ui
 
   //only the exp_th values
   difference = (std::get<1>(m5pmodelns3(succratio, gcu, currmcs, stadd)) - std::get<1>(m5pmodelns3(succratio, gcu, lastmcs, stadd)))/std::get<1>(m5pmodelns3(succratio, gcu, lastmcs, stadd));
-  std::cout<<"At the station MAC:"<<stadd<<" the current expected throughput is "<<std::get<1>(m5pmodelns3(succratio, gcu, currmcs, stadd))<<" the last expected throughput is "<<std::get<1>(m5pmodelns3(succratio, gcu, lastmcs, stadd))<< "\n";
+  //////std::cout<<"At the station MAC:"<<stadd<<" the current expected throughput is "<<std::get<1>(m5pmodelns3(succratio, gcu, currmcs, stadd))<<" the last expected throughput is "<<std::get<1>(m5pmodelns3(succratio, gcu, lastmcs, stadd))<< "\n";
   if (difference < 0.05)
   {
     //derive agg length
-    //std::cout<<"ad";
+    ////std::cout<<"ad";
     agglength = std::get<0>(m5pmodelns3(succratio, gcu, lastmcs, stadd));
   }
   else
   {
-    //std::cout<<"ad";
+    ////std::cout<<"ad";
     agglength = std::get<0>(m5pmodelns3(succratio, gcu, currmcs, stadd));
   }
 
-
+  //counterMCS
+  maxagglengthperstation[stadd][agglengthtoindexmap[agglength]]++;
   return agglength;
 }
 
@@ -2851,7 +2976,7 @@ std::tuple<int, float> MinstrelHtWifiManager::rfrmodelns3 (float succratio, floa
 {
   PyObject *len1load, *len2load, *len3load, *len4load,*file1args, *file2args, *file3args, *file4args;
   Py_Initialize();
-  //std::cout<<"before imprt\n";
+  ///std::cout<<"before imprt\n";
   PyRun_SimpleString("from sklearn.externals import joblib\n"
                      "import pandas\n"
                      "import os\n");//pickle and joblib gives the
@@ -2863,12 +2988,12 @@ std::tuple<int, float> MinstrelHtWifiManager::rfrmodelns3 (float succratio, floa
   PyList_SET_ITEM(xdatatup, 0, xdata);
   //PyObject* objectsRepresentation = PyObject_Repr(xdatatup);
   //const char* s = PyString_AsString(objectsRepresentation);
-  //std::cout<<"xdatatup:"<<s<<"\n";
+  ///std::cout<<"xdatatup:"<<s<<"\n";
   PyObject* xfeatures = PyList_New(2);
   PyList_SET_ITEM(xfeatures, 0, PyString_FromString("GCU"));
   PyList_SET_ITEM(xfeatures, 1, PyString_FromString("SUCCRATIO"));
 
-  //std::cout<<"xdta size:"<<PyTuple_GET_SIZE(xdata)<<"\n";
+  ///std::cout<<"xdta size:"<<PyTuple_GET_SIZE(xdata)<<"\n";
   PyObject* pModulepd = PyImport_Import(PyString_FromString((char*)"pandas"));
   PyObject* pFuncpd = PyObject_GetAttrString(pModulepd, (char*)"DataFrame");
   PyObject* args = PyTuple_Pack(1, xdatatup);
@@ -2880,12 +3005,12 @@ std::tuple<int, float> MinstrelHtWifiManager::rfrmodelns3 (float succratio, floa
 
   /*PyObject* fileargs = PyTuple_Pack(1, PyString_FromString((char*)"/home/antfbk/NS3/repos/ns-3-allinone/ns-3-29-d977712d48a0/RFns3/mcs0_550.pkl"));
   PyObject* lenload = PyObject_CallObject(jblen1load, fileargs);
-  std::cout<<lenload<<" end\n";*/
+  //////std::cout<<lenload<<" end\n";*/
   /*PyRun_SimpleString( "file = open('/home/antfbk/NS3/repos/ns-3-allinone/ns-3-29-d977712d48a0/RFns3/mcs0_1024.pkl','rb')\n"
                       "x=joblib.load('/home/antfbk/NS3/repos/ns-3-allinone/ns-3-29-d977712d48a0/RFns3/mcs0_1024.pkl')\n"//file is not found//pickle.load is loaded wth rght file name
                       "file.close()\n"
                       "print(x)\n");*///only joblib refcount
-  //std::cout<<"PVALUE:"<<f<<"\n";
+  ///std::cout<<"PVALUE:"<<f<<"\n";
   if (mcsvalue == 0)
   {
     //PyObject* jblen1mod = PyImport_Import(PyString_FromString((char*)"pandas"));
@@ -2905,7 +3030,7 @@ std::tuple<int, float> MinstrelHtWifiManager::rfrmodelns3 (float succratio, floa
          testobj = PyObject_Repr(PyObject_GetItem(PyObject_CallObject(PyObject_GetAttrString(len1load, (char*)"predict"),PyTuple_Pack(1,xtest)), PyLong_FromLong(0)));
          char* mcs0sa550 = PyString_AsString(testobj);
          expected_th =  atof(mcs0sa550);
-         //std::cout<<"Expected Th:"<<expected_th<<"\n";
+         ///std::cout<<"Expected Th:"<<expected_th<<"\n";
          expit->second = expected_th;
        }
 
@@ -2914,7 +3039,7 @@ std::tuple<int, float> MinstrelHtWifiManager::rfrmodelns3 (float succratio, floa
          testobj = PyObject_Repr(PyObject_GetItem(PyObject_CallObject(PyObject_GetAttrString(len2load, (char*)"predict"),PyTuple_Pack(1,xtest)), PyLong_FromLong(0)));
          char* mcs0sa1024 = PyString_AsString(testobj);
          expected_th =  atof(mcs0sa1024);
-         //std::cout<<"Expected Th:"<<expected_th<<"\n";
+         ///std::cout<<"Expected Th:"<<expected_th<<"\n";
          expit->second = expected_th;
        }
 
@@ -2923,7 +3048,7 @@ std::tuple<int, float> MinstrelHtWifiManager::rfrmodelns3 (float succratio, floa
          testobj = PyObject_Repr(PyObject_GetItem(PyObject_CallObject(PyObject_GetAttrString(len3load, (char*)"predict"),PyTuple_Pack(1,xtest)), PyLong_FromLong(0)));
          char* mcs0sa2048 = PyString_AsString(testobj);
          expected_th =  atof(mcs0sa2048);
-         //std::cout<<"Expected Th:"<<expected_th<<"\n";
+         ///std::cout<<"Expected Th:"<<expected_th<<"\n";
          expit->second = expected_th;
        }
 
@@ -2932,7 +3057,7 @@ std::tuple<int, float> MinstrelHtWifiManager::rfrmodelns3 (float succratio, floa
          testobj = PyObject_Repr(PyObject_GetItem(PyObject_CallObject(PyObject_GetAttrString(len4load, (char*)"predict"),PyTuple_Pack(1,xtest)), PyLong_FromLong(0)));
          char* mcs0sa3839 = PyString_AsString(testobj);
          expected_th =  atof(mcs0sa3839);
-         //std::cout<<"Expected Th:"<<expected_th<<"\n";
+         ///std::cout<<"Expected Th:"<<expected_th<<"\n";
          expit->second = expected_th;
        }
      }
@@ -2957,7 +3082,7 @@ std::tuple<int, float> MinstrelHtWifiManager::rfrmodelns3 (float succratio, floa
          testobj = PyObject_Repr(PyObject_GetItem(PyObject_CallObject(PyObject_GetAttrString(len1load, (char*)"predict"),PyTuple_Pack(1,xtest)), PyLong_FromLong(0)));
          char* mcs1sa550 = PyString_AsString(testobj);
          expected_th =  atof(mcs1sa550);
-         //std::cout<<"Expected Th:"<<expected_th<<"\n";
+         ///std::cout<<"Expected Th:"<<expected_th<<"\n";
          expit->second = expected_th;
        }
 
@@ -2966,7 +3091,7 @@ std::tuple<int, float> MinstrelHtWifiManager::rfrmodelns3 (float succratio, floa
          testobj = PyObject_Repr(PyObject_GetItem(PyObject_CallObject(PyObject_GetAttrString(len2load, (char*)"predict"),PyTuple_Pack(1,xtest)), PyLong_FromLong(0)));
          char* mcs1sa1024 = PyString_AsString(testobj);
          expected_th =  atof(mcs1sa1024);
-         //std::cout<<"Expected Th:"<<expected_th<<"\n";
+         ///std::cout<<"Expected Th:"<<expected_th<<"\n";
          expit->second = expected_th;
        }
 
@@ -2975,7 +3100,7 @@ std::tuple<int, float> MinstrelHtWifiManager::rfrmodelns3 (float succratio, floa
          testobj = PyObject_Repr(PyObject_GetItem(PyObject_CallObject(PyObject_GetAttrString(len3load, (char*)"predict"),PyTuple_Pack(1,xtest)), PyLong_FromLong(0)));
          char* mcs1sa2048 = PyString_AsString(testobj);
          expected_th =  atof(mcs1sa2048);
-         //std::cout<<"Expected Th:"<<expected_th<<"\n";
+         ///std::cout<<"Expected Th:"<<expected_th<<"\n";
          expit->second = expected_th;
        }
 
@@ -2984,7 +3109,7 @@ std::tuple<int, float> MinstrelHtWifiManager::rfrmodelns3 (float succratio, floa
          testobj = PyObject_Repr(PyObject_GetItem(PyObject_CallObject(PyObject_GetAttrString(len4load, (char*)"predict"),PyTuple_Pack(1,xtest)), PyLong_FromLong(0)));
          char* mcs1sa3839 = PyString_AsString(testobj);
          expected_th =  atof(mcs1sa3839);
-         //std::cout<<"Expected Th:"<<expected_th<<"\n";
+         ///std::cout<<"Expected Th:"<<expected_th<<"\n";
          expit->second = expected_th;
        }
      }
@@ -3009,7 +3134,7 @@ std::tuple<int, float> MinstrelHtWifiManager::rfrmodelns3 (float succratio, floa
          testobj = PyObject_Repr(PyObject_GetItem(PyObject_CallObject(PyObject_GetAttrString(len1load, (char*)"predict"),PyTuple_Pack(1,xtest)), PyLong_FromLong(0)));
          char* mcs2sa550 = PyString_AsString(testobj);
          expected_th =  atof(mcs2sa550);
-         //std::cout<<"Expected Th:"<<expected_th<<"\n";
+         ///std::cout<<"Expected Th:"<<expected_th<<"\n";
          expit->second = expected_th;
        }
 
@@ -3018,7 +3143,7 @@ std::tuple<int, float> MinstrelHtWifiManager::rfrmodelns3 (float succratio, floa
          testobj = PyObject_Repr(PyObject_GetItem(PyObject_CallObject(PyObject_GetAttrString(len2load, (char*)"predict"),PyTuple_Pack(1,xtest)), PyLong_FromLong(0)));
          char* mcs2sa1024 = PyString_AsString(testobj);
          expected_th =  atof(mcs2sa1024);
-         //std::cout<<"Expected Th:"<<expected_th<<"\n";
+         ///std::cout<<"Expected Th:"<<expected_th<<"\n";
          expit->second = expected_th;
        }
 
@@ -3027,7 +3152,7 @@ std::tuple<int, float> MinstrelHtWifiManager::rfrmodelns3 (float succratio, floa
          testobj = PyObject_Repr(PyObject_GetItem(PyObject_CallObject(PyObject_GetAttrString(len3load, (char*)"predict"),PyTuple_Pack(1,xtest)), PyLong_FromLong(0)));
          char* mcs2sa2048 = PyString_AsString(testobj);
          expected_th =  atof(mcs2sa2048);
-         //std::cout<<"Expected Th:"<<expected_th<<"\n";
+         ///std::cout<<"Expected Th:"<<expected_th<<"\n";
          expit->second = expected_th;
        }
 
@@ -3036,7 +3161,7 @@ std::tuple<int, float> MinstrelHtWifiManager::rfrmodelns3 (float succratio, floa
          testobj = PyObject_Repr(PyObject_GetItem(PyObject_CallObject(PyObject_GetAttrString(len4load, (char*)"predict"),PyTuple_Pack(1,xtest)), PyLong_FromLong(0)));
          char* mcs2sa3839 = PyString_AsString(testobj);
          expected_th =  atof(mcs2sa3839);
-         //std::cout<<"Expected Th:"<<expected_th<<"\n";
+         ///std::cout<<"Expected Th:"<<expected_th<<"\n";
          expit->second = expected_th;
        }
      }
@@ -3061,7 +3186,7 @@ std::tuple<int, float> MinstrelHtWifiManager::rfrmodelns3 (float succratio, floa
          testobj = PyObject_Repr(PyObject_GetItem(PyObject_CallObject(PyObject_GetAttrString(len1load, (char*)"predict"),PyTuple_Pack(1,xtest)), PyLong_FromLong(0)));
          char* mcs3sa550 = PyString_AsString(testobj);
          expected_th =  atof(mcs3sa550);
-         //std::cout<<"Expected Th:"<<expected_th<<"\n";
+         ///std::cout<<"Expected Th:"<<expected_th<<"\n";
          expit->second = expected_th;
        }
 
@@ -3070,7 +3195,7 @@ std::tuple<int, float> MinstrelHtWifiManager::rfrmodelns3 (float succratio, floa
          testobj = PyObject_Repr(PyObject_GetItem(PyObject_CallObject(PyObject_GetAttrString(len2load, (char*)"predict"),PyTuple_Pack(1,xtest)), PyLong_FromLong(0)));
          char* mcs3sa1024 = PyString_AsString(testobj);
          expected_th =  atof(mcs3sa1024);
-         //std::cout<<"Expected Th:"<<expected_th<<"\n";
+         ///std::cout<<"Expected Th:"<<expected_th<<"\n";
          expit->second = expected_th;
        }
 
@@ -3079,7 +3204,7 @@ std::tuple<int, float> MinstrelHtWifiManager::rfrmodelns3 (float succratio, floa
          testobj = PyObject_Repr(PyObject_GetItem(PyObject_CallObject(PyObject_GetAttrString(len3load, (char*)"predict"),PyTuple_Pack(1,xtest)), PyLong_FromLong(0)));
          char* mcs3sa2048 = PyString_AsString(testobj);
          expected_th =  atof(mcs3sa2048);
-         //std::cout<<"Expected Th:"<<expected_th<<"\n";
+         ///std::cout<<"Expected Th:"<<expected_th<<"\n";
          expit->second = expected_th;
        }
 
@@ -3088,7 +3213,7 @@ std::tuple<int, float> MinstrelHtWifiManager::rfrmodelns3 (float succratio, floa
          testobj = PyObject_Repr(PyObject_GetItem(PyObject_CallObject(PyObject_GetAttrString(len4load, (char*)"predict"),PyTuple_Pack(1,xtest)), PyLong_FromLong(0)));
          char* mcs3sa3839 = PyString_AsString(testobj);
          expected_th =  atof(mcs3sa3839);
-         //std::cout<<"Expected Th:"<<expected_th<<"\n";
+         ///std::cout<<"Expected Th:"<<expected_th<<"\n";
          expit->second = expected_th;
        }
      }
@@ -3112,7 +3237,7 @@ std::tuple<int, float> MinstrelHtWifiManager::rfrmodelns3 (float succratio, floa
          testobj = PyObject_Repr(PyObject_GetItem(PyObject_CallObject(PyObject_GetAttrString(len1load, (char*)"predict"),PyTuple_Pack(1,xtest)), PyLong_FromLong(0)));
          char* mcs4sa550 = PyString_AsString(testobj);
          expected_th =  atof(mcs4sa550);
-         //std::cout<<"Expected Th:"<<expected_th<<"\n";
+         ///std::cout<<"Expected Th:"<<expected_th<<"\n";
          expit->second = expected_th;
        }
 
@@ -3121,7 +3246,7 @@ std::tuple<int, float> MinstrelHtWifiManager::rfrmodelns3 (float succratio, floa
          testobj = PyObject_Repr(PyObject_GetItem(PyObject_CallObject(PyObject_GetAttrString(len2load, (char*)"predict"),PyTuple_Pack(1,xtest)), PyLong_FromLong(0)));
          char* mcs4sa1024 = PyString_AsString(testobj);
          expected_th =  atof(mcs4sa1024);
-         //std::cout<<"Expected Th:"<<expected_th<<"\n";
+         ///std::cout<<"Expected Th:"<<expected_th<<"\n";
          expit->second = expected_th;
        }
 
@@ -3130,7 +3255,7 @@ std::tuple<int, float> MinstrelHtWifiManager::rfrmodelns3 (float succratio, floa
          testobj = PyObject_Repr(PyObject_GetItem(PyObject_CallObject(PyObject_GetAttrString(len3load, (char*)"predict"),PyTuple_Pack(1,xtest)), PyLong_FromLong(0)));
          char* mcs4sa2048 = PyString_AsString(testobj);
          expected_th =  atof(mcs4sa2048);
-         //std::cout<<"Expected Th:"<<expected_th<<"\n";
+         ///std::cout<<"Expected Th:"<<expected_th<<"\n";
          expit->second = expected_th;
        }
 
@@ -3139,7 +3264,7 @@ std::tuple<int, float> MinstrelHtWifiManager::rfrmodelns3 (float succratio, floa
          testobj = PyObject_Repr(PyObject_GetItem(PyObject_CallObject(PyObject_GetAttrString(len4load, (char*)"predict"),PyTuple_Pack(1,xtest)), PyLong_FromLong(0)));
          char* mcs4sa3839 = PyString_AsString(testobj);
          expected_th =  atof(mcs4sa3839);
-         //std::cout<<"Expected Th:"<<expected_th<<"\n";
+         ///std::cout<<"Expected Th:"<<expected_th<<"\n";
          expit->second = expected_th;
        }
      }
@@ -3163,7 +3288,7 @@ std::tuple<int, float> MinstrelHtWifiManager::rfrmodelns3 (float succratio, floa
          testobj = PyObject_Repr(PyObject_GetItem(PyObject_CallObject(PyObject_GetAttrString(len1load, (char*)"predict"),PyTuple_Pack(1,xtest)), PyLong_FromLong(0)));
          char* mcs5sa550 = PyString_AsString(testobj);
          expected_th =  atof(mcs5sa550);
-         //std::cout<<"Expected Th:"<<expected_th<<"\n";
+         ///std::cout<<"Expected Th:"<<expected_th<<"\n";
          expit->second = expected_th;
        }
 
@@ -3172,7 +3297,7 @@ std::tuple<int, float> MinstrelHtWifiManager::rfrmodelns3 (float succratio, floa
          testobj = PyObject_Repr(PyObject_GetItem(PyObject_CallObject(PyObject_GetAttrString(len2load, (char*)"predict"),PyTuple_Pack(1,xtest)), PyLong_FromLong(0)));
          char* mcs5sa1024 = PyString_AsString(testobj);
          expected_th =  atof(mcs5sa1024);
-         //std::cout<<"Expected Th:"<<expected_th<<"\n";
+         ///std::cout<<"Expected Th:"<<expected_th<<"\n";
          expit->second = expected_th;
        }
 
@@ -3181,7 +3306,7 @@ std::tuple<int, float> MinstrelHtWifiManager::rfrmodelns3 (float succratio, floa
          testobj = PyObject_Repr(PyObject_GetItem(PyObject_CallObject(PyObject_GetAttrString(len3load, (char*)"predict"),PyTuple_Pack(1,xtest)), PyLong_FromLong(0)));
          char* mcs5sa2048 = PyString_AsString(testobj);
          expected_th =  atof(mcs5sa2048);
-         //std::cout<<"Expected Th:"<<expected_th<<"\n";
+         ///std::cout<<"Expected Th:"<<expected_th<<"\n";
          expit->second = expected_th;
        }
 
@@ -3190,7 +3315,7 @@ std::tuple<int, float> MinstrelHtWifiManager::rfrmodelns3 (float succratio, floa
          testobj = PyObject_Repr(PyObject_GetItem(PyObject_CallObject(PyObject_GetAttrString(len4load, (char*)"predict"),PyTuple_Pack(1,xtest)), PyLong_FromLong(0)));
          char* mcs5sa3839 = PyString_AsString(testobj);
          expected_th =  atof(mcs5sa3839);
-         //std::cout<<"Expected Th:"<<expected_th<<"\n";
+         ///std::cout<<"Expected Th:"<<expected_th<<"\n";
          expit->second = expected_th;
        }
      }
@@ -3214,7 +3339,7 @@ std::tuple<int, float> MinstrelHtWifiManager::rfrmodelns3 (float succratio, floa
          testobj = PyObject_Repr(PyObject_GetItem(PyObject_CallObject(PyObject_GetAttrString(len1load, (char*)"predict"),PyTuple_Pack(1,xtest)), PyLong_FromLong(0)));
          char* mcs6sa550 = PyString_AsString(testobj);
          expected_th =  atof(mcs6sa550);
-         //std::cout<<"Expected Th:"<<expected_th<<"\n";
+         ///std::cout<<"Expected Th:"<<expected_th<<"\n";
          expit->second = expected_th;
        }
 
@@ -3223,7 +3348,7 @@ std::tuple<int, float> MinstrelHtWifiManager::rfrmodelns3 (float succratio, floa
          testobj = PyObject_Repr(PyObject_GetItem(PyObject_CallObject(PyObject_GetAttrString(len2load, (char*)"predict"),PyTuple_Pack(1,xtest)), PyLong_FromLong(0)));
          char* mcs6sa1024 = PyString_AsString(testobj);
          expected_th =  atof(mcs6sa1024);
-         //std::cout<<"Expected Th:"<<expected_th<<"\n";
+         ///std::cout<<"Expected Th:"<<expected_th<<"\n";
          expit->second = expected_th;
        }
 
@@ -3232,7 +3357,7 @@ std::tuple<int, float> MinstrelHtWifiManager::rfrmodelns3 (float succratio, floa
          testobj = PyObject_Repr(PyObject_GetItem(PyObject_CallObject(PyObject_GetAttrString(len3load, (char*)"predict"),PyTuple_Pack(1,xtest)), PyLong_FromLong(0)));
          char* mcs6sa2048 = PyString_AsString(testobj);
          expected_th =  atof(mcs6sa2048);
-         //std::cout<<"Expected Th:"<<expected_th<<"\n";
+         ///std::cout<<"Expected Th:"<<expected_th<<"\n";
          expit->second = expected_th;
        }
 
@@ -3241,7 +3366,7 @@ std::tuple<int, float> MinstrelHtWifiManager::rfrmodelns3 (float succratio, floa
          testobj = PyObject_Repr(PyObject_GetItem(PyObject_CallObject(PyObject_GetAttrString(len4load, (char*)"predict"),PyTuple_Pack(1,xtest)), PyLong_FromLong(0)));
          char* mcs6sa3839 = PyString_AsString(testobj);
          expected_th =  atof(mcs6sa3839);
-         //std::cout<<"Expected Th:"<<expected_th<<"\n";
+         ///std::cout<<"Expected Th:"<<expected_th<<"\n";
          expit->second = expected_th;
        }
      }
@@ -3265,7 +3390,7 @@ std::tuple<int, float> MinstrelHtWifiManager::rfrmodelns3 (float succratio, floa
          testobj = PyObject_Repr(PyObject_GetItem(PyObject_CallObject(PyObject_GetAttrString(len1load, (char*)"predict"),PyTuple_Pack(1,xtest)), PyLong_FromLong(0)));
          char* mcs7sa550 = PyString_AsString(testobj);
          expected_th =  atof(mcs7sa550);
-         //std::cout<<"Expected Th:"<<expected_th<<"\n";
+         ///std::cout<<"Expected Th:"<<expected_th<<"\n";
          expit->second = expected_th;
        }
 
@@ -3274,7 +3399,7 @@ std::tuple<int, float> MinstrelHtWifiManager::rfrmodelns3 (float succratio, floa
          testobj = PyObject_Repr(PyObject_GetItem(PyObject_CallObject(PyObject_GetAttrString(len2load, (char*)"predict"),PyTuple_Pack(1,xtest)), PyLong_FromLong(0)));
          char* mcs7sa1024 = PyString_AsString(testobj);
          expected_th =  atof(mcs7sa1024);
-         //std::cout<<"Expected Th:"<<expected_th<<"\n";
+         ///std::cout<<"Expected Th:"<<expected_th<<"\n";
          expit->second = expected_th;
        }
 
@@ -3283,7 +3408,7 @@ std::tuple<int, float> MinstrelHtWifiManager::rfrmodelns3 (float succratio, floa
          testobj = PyObject_Repr(PyObject_GetItem(PyObject_CallObject(PyObject_GetAttrString(len3load, (char*)"predict"),PyTuple_Pack(1,xtest)), PyLong_FromLong(0)));
          char* mcs7sa2048 = PyString_AsString(testobj);
          expected_th =  atof(mcs7sa2048);
-         //std::cout<<"Expected Th:"<<expected_th<<"\n";
+         ///std::cout<<"Expected Th:"<<expected_th<<"\n";
          expit->second = expected_th;
        }
 
@@ -3292,7 +3417,7 @@ std::tuple<int, float> MinstrelHtWifiManager::rfrmodelns3 (float succratio, floa
          testobj = PyObject_Repr(PyObject_GetItem(PyObject_CallObject(PyObject_GetAttrString(len4load, (char*)"predict"),PyTuple_Pack(1,xtest)), PyLong_FromLong(0)));
          char* mcs7sa3839 = PyString_AsString(testobj);
          expected_th =  atof(mcs7sa3839);
-         //std::cout<<"Expected Th 3839:"<<expected_th<<"\n";
+         ///std::cout<<"Expected Th 3839:"<<expected_th<<"\n";
          expit->second = expected_th;
        }
      }
@@ -3308,7 +3433,7 @@ std::tuple<int, float> MinstrelHtWifiManager::rfrmodelns3 (float succratio, floa
     if (highestexp < genit->second)
     {
       highestexp = genit->second;
-      //std::cout<<"HIGHEST EXP_TH:"<<highestexp<<"\n";
+      ///std::cout<<"HIGHEST EXP_TH:"<<highestexp<<"\n";
       highexpagglength = genit->first;
     }
 
@@ -3338,7 +3463,6 @@ std::tuple<int, float> MinstrelHtWifiManager::rfrmodelns3 (float succratio, floa
 
       if(bannedagglengthcounterperstation[stadd][agglengthtoindexmap[previousaggregationlengthperstation[stadd]]] == 0)
       {
-        std::cout<<"\n";
         bannedagglengthcounterperstation[stadd][agglengthtoindexmap[previousaggregationlengthperstation[stadd]]] = 10;
 
       }
@@ -3354,7 +3478,7 @@ std::tuple<int, float> MinstrelHtWifiManager::rfrmodelns3 (float succratio, floa
     {
       if(bannedagglengthcounterperstation[stadd][agglengthtoindexmap[highexpagglength]] == 0)
       {
-        std::cout<<"\n";
+        //////std::cout<<"\n";
         bannedagglengthcounterperstation[stadd][agglengthtoindexmap[highexpagglength]] = 10;
 
       }
@@ -3422,8 +3546,8 @@ std::tuple<int, float> MinstrelHtWifiManager::rfrmodelns3 (float succratio, floa
   Py_DECREF(keywords);
   Py_DECREF(xtest);
   Py_DECREF(jblen1load);
-  //std::cout<<"HIGHEST EXP_TH:"<<highestexp<<"\n";
-  //std::cout<<"The expected throughput is "<<highestexp<<" for aggregation length:"<<highexpagglength<<"\n";
+  ///std::cout<<"HIGHEST EXP_TH:"<<highestexp<<"\n";
+  ///std::cout<<"The expected throughput is "<<highestexp<<" for aggregation length:"<<highexpagglength<<"\n";
   return std::make_tuple(highexpagglength,highestexp);
 }
   //Py_Finalize();// this would render the interpreter uesless! hence sigsegv
@@ -3438,19 +3562,24 @@ int MinstrelHtWifiManager::comparelastandcurrentrfrns3 (float succratio, float g
 
   //only the exp_th values
   difference = (std::get<1>(rfrmodelns3(succratio, gcu, currmcs, stadd)) - std::get<1>(rfrmodelns3(succratio, gcu, lastmcs, stadd)))/std::get<1>(rfrmodelns3(succratio, gcu, lastmcs, stadd));
-  std::cout<<"At the station MAC:"<<stadd<<" the current expected throughput is "<<std::get<1>(rfrmodelns3(succratio, gcu, currmcs, stadd))<<" the last expected throughput is "<<std::get<1>(rfrmodelns3(succratio, gcu, lastmcs, stadd))<< "\n";
+  //////std::cout<<"At the station MAC:"<<stadd<<" the current expected throughput is "<<std::get<1>(rfrmodelns3(succratio, gcu, currmcs, stadd))<<" the last expected throughput is "<<std::get<1>(rfrmodelns3(succratio, gcu, lastmcs, stadd))<< "\n";
   if (difference < 0.05)
   {
     //derive agg length
-    //std::cout<<"ad";
+    ///std::cout<<"ad";
     agglength = std::get<0>(rfrmodelns3(succratio, gcu, lastmcs, stadd));
   }
   else
   {
-    //std::cout<<"ad";
+    ///std::cout<<"ad";
     agglength = std::get<0>(rfrmodelns3(succratio, gcu, currmcs, stadd));
   }
-
+  //std::cout<<maxagglengthperstation[stadd][agglengthtoindexmap[agglength]]<<" times "<<agglength<<"chosen by:"<<stadd<<"\n";
+  if(agglength != 0 && stadd != uplinkstations[2])//"00:00:00:00:00:0d"
+  {
+    maxagglengthperstation[stadd][agglengthtoindexmap[agglength]]++;
+    //std::cout<<maxagglengthperstation[stadd][agglengthtoindexmap[agglength]]<<" times "<<agglength<<" chosen by:"<<stadd<<"\n";
+  }
 
   return agglength;
 }
@@ -3462,12 +3591,12 @@ std::tuple<int, float> MinstrelHtWifiManager::m5pmodelplatform(float succratio, 
 {
   float expected_th = 0;
 
-  //std::cout<<"ns3";
+  ///std::cout<<"ns3";
   std::map<int,float> ::iterator expit;
   //MCS0
   if (mcsvalue == 0)
   {
-    std::cout<<"The MCS value is "<<mcsvalue<<"\n";
+    //////std::cout<<"The MCS value is "<<mcsvalue<<"\n";
     for(expit = mcs0agglengthexpth.begin(); expit != mcs0agglengthexpth.end(); expit++)
     {
       if(expit->first == 550)
@@ -3475,19 +3604,19 @@ std::tuple<int, float> MinstrelHtWifiManager::m5pmodelplatform(float succratio, 
         if (lastattemptbytes > 34280 && lastattemptbytes <= 34280)
         {
           expected_th = 1.0012 * lastattemptbytes	+ 3627.4513 * succratio- 4812.4582;
-          std::cout<<"The expected throughput is "<<expected_th<<" for aggregation length:"<<expit->first<<"\n";
+          //////std::cout<<"The expected throughput is "<<expected_th<<" for aggregation length:"<<expit->first<<"\n";
           expit->second = expected_th;
         }
         if (lastattemptbytes > 72114)
         {
           expected_th = 0.9695 * lastattemptbytes	+ 177655.9339 * succratio- 172464.2645;
-          std::cout<<"The expected throughput is "<<expected_th<<" for aggregation length:"<<expit->first<<"\n";
+          //////std::cout<<"The expected throughput is "<<expected_th<<" for aggregation length:"<<expit->first<<"\n";
           expit->second = expected_th;
         }
         else
         {
           expected_th = 0.748 * lastattemptbytes	- 148.9901;
-          std::cout<<"The expected throughput is "<<expected_th<<" for aggregation length:"<<expit->first<<"\n";
+          //////std::cout<<"The expected throughput is "<<expected_th<<" for aggregation length:"<<expit->first<<"\n";
           expit->second = expected_th;
         }
 
@@ -3498,31 +3627,31 @@ std::tuple<int, float> MinstrelHtWifiManager::m5pmodelplatform(float succratio, 
         if (lastattemptbytes > 59774 && lastattemptbytes <= 137836)
         {
           expected_th = 0.8803 * lastattemptbytes	+ 1251.5725 * succratio	+ 630.2685 *gcu	- 47500.6259;
-          std::cout<<"The expected throughput is "<<expected_th<<" for aggregation length:"<<expit->first<<"\n";
+          //////std::cout<<"The expected throughput is "<<expected_th<<" for aggregation length:"<<expit->first<<"\n";
           expit->second = expected_th;
         }
         if (lastattemptbytes > 99304 && lastattemptbytes <= 176264)
         {
           expected_th = 0.7073 * lastattemptbytes	+ 1160.7185 * gcu- 58284.3375;
-          std::cout<<"The expected throughput is "<<expected_th<<" for aggregation length:"<<expit->first<<"\n";
+          //////std::cout<<"The expected throughput is "<<expected_th<<" for aggregation length:"<<expit->first<<"\n";
           expit->second = expected_th;
         }
         if (lastattemptbytes <= 3167.5)
         {
           expected_th = 0.0387 * lastattemptbytes	+ 149.9806;
-          std::cout<<"The expected throughput is "<<expected_th<<" for aggregation length:"<<expit->first<<"\n";
+          //////std::cout<<"The expected throughput is "<<expected_th<<" for aggregation length:"<<expit->first<<"\n";
           expit->second = expected_th;
         }
         if (lastattemptbytes > 176264)
         {
           expected_th = 1.2983 * lastattemptbytes- 106749.866;
-          std::cout<<"The expected throughput is "<<expected_th<<" for aggregation length:"<<expit->first<<"\n";
+          //////std::cout<<"The expected throughput is "<<expected_th<<" for aggregation length:"<<expit->first<<"\n";
           expit->second = expected_th;
         }
         else
         {
           expected_th = 29160.6202;
-          std::cout<<"The expected throughput is "<<expected_th<<" for aggregation length:"<<expit->first<<"\n";
+          //////std::cout<<"The expected throughput is "<<expected_th<<" for aggregation length:"<<expit->first<<"\n";
           expit->second = expected_th;
         }
       }
@@ -3532,19 +3661,19 @@ std::tuple<int, float> MinstrelHtWifiManager::m5pmodelplatform(float succratio, 
         if (lastattemptbytes > 60172 && lastattemptbytes <= 141607)
         {
           expected_th = 0.9708 * lastattemptbytes+ 1314.4356 * succratio- 309.4258;
-          std::cout<<"The expected throughput is "<<expected_th<<" for aggregation length:"<<expit->first<<"\n";
+          //////std::cout<<"The expected throughput is "<<expected_th<<" for aggregation length:"<<expit->first<<"\n";
           expit->second = expected_th;
         }
         if (lastattemptbytes > 100731)
         {
           expected_th =  0.9471 * lastattemptbytes+ 219434.7577 * succratio- 208070.1289;
-          std::cout<<"The expected throughput is "<<expected_th<<" for aggregation length:"<<expit->first<<"\n";
+          //////std::cout<<"The expected throughput is "<<expected_th<<" for aggregation length:"<<expit->first<<"\n";
           expit->second = expected_th;
         }
         else
         {
           expected_th = 0.7314 * lastattemptbytes	- 59.7816;
-          std::cout<<"The expected throughput is "<<expected_th<<" for aggregation length:"<<expit->first<<"\n";
+          //////std::cout<<"The expected throughput is "<<expected_th<<" for aggregation length:"<<expit->first<<"\n";
           expit->second = expected_th;
         }
       }
@@ -3554,37 +3683,37 @@ std::tuple<int, float> MinstrelHtWifiManager::m5pmodelplatform(float succratio, 
         if (lastattemptbytes > 47705 && lastattemptbytes <= 96999)
         {
           expected_th =-9.9177 * lastattemptbytes	+ 0.9247 * lastattemptbytes	+ 50918.9539 * succratio+ 96.9332 * gcu	- 55888.7605;
-          std::cout<<"The expected throughput is "<<expected_th<<" for aggregation length:"<<expit->first<<"\n";
+          //////std::cout<<"The expected throughput is "<<expected_th<<" for aggregation length:"<<expit->first<<"\n";
           expit->second = expected_th;
         }
         if (lastattemptbytes > 1811 && lastattemptbytes <= 72065)
         {
           expected_th = -122.5223 * lastattemptbytes+ 0.5664 * lastattemptbytes	+ 21077.6124 *succratio	+ 59.8891 * gcu- 15928.7687;
-          std::cout<<"The expected throughput is "<<expected_th<<" for aggregation length:"<<expit->first<<"\n";
+          //////std::cout<<"The expected throughput is "<<expected_th<<" for aggregation length:"<<expit->first<<"\n";
           expit->second = expected_th;
         }
         if(lastattemptbytes <= 49613)
         {
           expected_th = 0.0354 * lastattemptbytes	+ 4691.891 * succratio- 3537.3489;
-          std::cout<<"The expected throughput is "<<expected_th<<" for aggregation length:"<<expit->first<<"\n";
+          //////std::cout<<"The expected throughput is "<<expected_th<<" for aggregation length:"<<expit->first<<"\n";
           expit->second = expected_th;
         }
         if(lastattemptbytes <= 201985)
         {
           expected_th = -3311.8903 * lastattemptbytes+ 0.8113 * lastattemptbytes+ 153652.5608 * succratio- 112970.1392;
-          std::cout<<"The expected throughput is "<<expected_th<<" for aggregation length:"<<expit->first<<"\n";
+          //////std::cout<<"The expected throughput is "<<expected_th<<" for aggregation length:"<<expit->first<<"\n";
           expit->second = expected_th;
         }
         if(lastattemptbytes > 241488)
         {
           expected_th = 12263.1968 * lastattemptbytes- 0.1461 * lastattemptbytes+ 260172.3685;
-          std::cout<<"The expected throughput is "<<expected_th<<" for aggregation length:"<<expit->first<<"\n";
+          //////std::cout<<"The expected throughput is "<<expected_th<<" for aggregation length:"<<expit->first<<"\n";
           expit->second = expected_th;
         }
         else
         {
           expected_th =  49801.0357 * lastattemptbytes- 13257.1456;
-          std::cout<<"The expected throughput is "<<expected_th<<" for aggregation length:"<<expit->first<<"\n";
+          //////std::cout<<"The expected throughput is "<<expected_th<<" for aggregation length:"<<expit->first<<"\n";
           expit->second = expected_th;
         }
       }
@@ -3595,7 +3724,7 @@ std::tuple<int, float> MinstrelHtWifiManager::m5pmodelplatform(float succratio, 
   //MCS1
   if (mcsvalue == 1)
   {
-    std::cout<<"The MCS value is "<<mcsvalue<<"\n";
+    //////std::cout<<"The MCS value is "<<mcsvalue<<"\n";
     for(expit = mcs1agglengthexpth.begin(); expit != mcs1agglengthexpth.end(); expit++)
     {
       if(expit->first == 550)
@@ -3603,19 +3732,19 @@ std::tuple<int, float> MinstrelHtWifiManager::m5pmodelplatform(float succratio, 
         if (lastattemptbytes <= 61140)
         {
           expected_th = 84.1163 * lastattemptbytes+ 0.9876 *lastattemptbytes+ 2117.5537 * succratio	- 2744.4491;
-          std::cout<<"The expected throughput is "<<expected_th<<" for aggregation length:"<<expit->first<<"\n";
+          //////std::cout<<"The expected throughput is "<<expected_th<<" for aggregation length:"<<expit->first<<"\n";
           expit->second = expected_th;
         }
         if (lastattemptbytes <= 175984)
         {
           expected_th = 10793.0715 *lastattemptbytes+ 0.9584 * lastattemptbytes	+ 4868.1258 * succratio	- 93863.7768;
-          std::cout<<"The expected throughput is "<<expected_th<<" for aggregation length:"<<expit->first<<"\n";
+          //////std::cout<<"The expected throughput is "<<expected_th<<" for aggregation length:"<<expit->first<<"\n";
           expit->second = expected_th;
         }
         else
         {
           expected_th = 0.9763 * lastattemptbytes	+ 246649.7607 * succratio	- 240885.9307;
-          std::cout<<"The expected throughput is "<<expected_th<<" for aggregation length:"<<expit->first<<"\n";
+          //////std::cout<<"The expected throughput is "<<expected_th<<" for aggregation length:"<<expit->first<<"\n";
           expit->second = expected_th;
         }
       }
@@ -3625,25 +3754,25 @@ std::tuple<int, float> MinstrelHtWifiManager::m5pmodelplatform(float succratio, 
         if (lastattemptbytes > 201908)
         {
           expected_th = 0.9743 * lastattemptbytes	+ 350566.3588 * succratio	- 341457.277;
-          std::cout<<"The expected throughput is "<<expected_th<<" for aggregation length:"<<expit->first<<"\n";
+          //////std::cout<<"The expected throughput is "<<expected_th<<" for aggregation length:"<<expit->first<<"\n";
           expit->second = expected_th;
         }
         if (lastattemptbytes > 3671.5 && lastattemptbytes<=122032)
         {
           expected_th = 0.968 * lastattemptbytes+ 158696.4981 * succratio+ 4.7525 * gcu- 154351.5465;
-          std::cout<<"The expected throughput is "<<expected_th<<" for aggregation length:"<<expit->first<<"\n";
+          //////std::cout<<"The expected throughput is "<<expected_th<<" for aggregation length:"<<expit->first<<"\n";
           expit->second = expected_th;
         }
         if (lastattemptbytes<=3671.5)
         {
           expected_th = 0.0338 * lastattemptbytes	+ 265.8779;
-          std::cout<<"The expected throughput is "<<expected_th<<" for aggregation length:"<<expit->first<<"\n";
+          //////std::cout<<"The expected throughput is "<<expected_th<<" for aggregation length:"<<expit->first<<"\n";
           expit->second = expected_th;
         }
         else
         {
           expected_th = 0.8819 * lastattemptbytes	+ 5705.4294;
-          std::cout<<"The expected throughput is "<<expected_th<<" for aggregation length:"<<expit->first<<"\n";
+          //////std::cout<<"The expected throughput is "<<expected_th<<" for aggregation length:"<<expit->first<<"\n";
           expit->second = expected_th;
         }
       }
@@ -3653,13 +3782,13 @@ std::tuple<int, float> MinstrelHtWifiManager::m5pmodelplatform(float succratio, 
         if (lastattemptbytes <= 249287)
         {
           expected_th = 0.9885 * lastattemptbytes	+ 3297.5379 * succratio	- 3087.9201;
-          std::cout<<"The expected throughput is "<<expected_th<<" for aggregation length:"<<expit->first<<"\n";
+          //////std::cout<<"The expected throughput is "<<expected_th<<" for aggregation length:"<<expit->first<<"\n";
           expit->second = expected_th;
         }
         else
         {
           expected_th = 0.9668 * lastattemptbytes	+ 392429.5786 * succratio- 380089.8137;
-          std::cout<<"The expected throughput is "<<expected_th<<" for aggregation length:"<<expit->first<<"\n";
+          //////std::cout<<"The expected throughput is "<<expected_th<<" for aggregation length:"<<expit->first<<"\n";
           expit->second = expected_th;
         }
       }
@@ -3669,31 +3798,31 @@ std::tuple<int, float> MinstrelHtWifiManager::m5pmodelplatform(float succratio, 
         if (lastattemptbytes <=171535 && lastattemptbytes>6642)
         {
           expected_th = 0.9703 * lastattemptbytes	+ 115289.3458 *succratio- 112016.74;
-          std::cout<<"The expected throughput is "<<expected_th<<" for aggregation length:"<<expit->first<<"\n";
+          //////std::cout<<"The expected throughput is "<<expected_th<<" for aggregation length:"<<expit->first<<"\n";
           expit->second = expected_th;
         }
         if (lastattemptbytes > 88719 && lastattemptbytes <= 246645)
         {
           expected_th = 0.9601 * lastattemptbytes	+ 229655.7694 * succratio- 220046.0186;
-          std::cout<<"The expected throughput is "<<expected_th<<" for aggregation length:"<<expit->first<<"\n";
+          //////std::cout<<"The expected throughput is "<<expected_th<<" for aggregation length:"<<expit->first<<"\n";
           expit->second = expected_th;
         }
         if (lastattemptbytes <= 126274)
         {
           expected_th = 0.038 * lastattemptbytes+ 10033.5784 * succratio- 8796.3036;
-          std::cout<<"The expected throughput is "<<expected_th<<" for aggregation length:"<<expit->first<<"\n";
+          //////std::cout<<"The expected throughput is "<<expected_th<<" for aggregation length:"<<expit->first<<"\n";
           expit->second = expected_th;
         }
         if (lastattemptbytes>395553)
         {
           expected_th = 0.633 * lastattemptbytes+ 1021227.2153 * succratio- 834029.7453;
-          std::cout<<"The expected throughput is "<<expected_th<<" for aggregation length:"<<expit->first<<"\n";
+          //////std::cout<<"The expected throughput is "<<expected_th<<" for aggregation length:"<<expit->first<<"\n";
           expit->second = expected_th;
         }
         else
         {
           expected_th =  0.8092 * lastattemptbytes+ 301880.9649 * succratio	- 237755.6497;
-          std::cout<<"The expected throughput is "<<expected_th<<" for aggregation length:"<<expit->first<<"\n";
+          //////std::cout<<"The expected throughput is "<<expected_th<<" for aggregation length:"<<expit->first<<"\n";
           expit->second = expected_th;
         }
       }
@@ -3706,7 +3835,7 @@ std::tuple<int, float> MinstrelHtWifiManager::m5pmodelplatform(float succratio, 
   //MCS2
   if (mcsvalue == 2)
   {
-    std::cout<<"The MCS value is "<<mcsvalue<<"\n";
+    //////std::cout<<"The MCS value is "<<mcsvalue<<"\n";
     for(expit = mcs2agglengthexpth.begin(); expit != mcs2agglengthexpth.end(); expit++)
     {
       if(expit->first == 550)
@@ -3714,19 +3843,19 @@ std::tuple<int, float> MinstrelHtWifiManager::m5pmodelplatform(float succratio, 
         if (lastattemptbytes <=153366 && lastattemptbytes <= 3923.5)
         {
           expected_th = 0.0364 * lastattemptbytes+ 1642.3555 * succratio- 1373.4996;
-          std::cout<<"The expected throughput is "<<expected_th<<" for aggregation length:"<<expit->first<<"\n";
+          //////std::cout<<"The expected throughput is "<<expected_th<<" for aggregation length:"<<expit->first<<"\n";
           expit->second = expected_th;
         }
         if (lastattemptbytes <= 172902)
         {
           expected_th = 421.221 * lastattemptbytes+ 0.9642 * lastattemptbytes- 3531.813;
-          std::cout<<"The expected throughput is "<<expected_th<<" for aggregation length:"<<expit->first<<"\n";
+          //////std::cout<<"The expected throughput is "<<expected_th<<" for aggregation length:"<<expit->first<<"\n";
           expit->second = expected_th;
         }
         else
         {
           expected_th =34730.6538 * lastattemptbytes+ 0.9891 *lastattemptbytes- 415697.2236;
-          std::cout<<"The expected throughput is "<<expected_th<<" for aggregation length:"<<expit->first<<"\n";
+          //////std::cout<<"The expected throughput is "<<expected_th<<" for aggregation length:"<<expit->first<<"\n";
           expit->second = expected_th;
         }
       }
@@ -3736,31 +3865,31 @@ std::tuple<int, float> MinstrelHtWifiManager::m5pmodelplatform(float succratio, 
         if (lastattemptbytes > 3968 && lastattemptbytes > 328917)
         {
           expected_th = 0.9828 * lastattemptbytes	+ 430534.8275 * succratio	- 422662.4859;
-          std::cout<<"The expected throughput is "<<expected_th<<" for aggregation length:"<<expit->first<<"\n";
+          //////std::cout<<"The expected throughput is "<<expected_th<<" for aggregation length:"<<expit->first<<"\n";
           expit->second = expected_th;
         }
         if (lastattemptbytes <= 3968 )
         {
           expected_th = 0.0249 * lastattemptbytes	+ 1726.6751 * succratio	- 1433.6429;
-          std::cout<<"The expected throughput is "<<expected_th<<" for aggregation length:"<<expit->first<<"\n";
+          //////std::cout<<"The expected throughput is "<<expected_th<<" for aggregation length:"<<expit->first<<"\n";
           expit->second = expected_th;
         }
         if (lastattemptbytes <= 162586)
         {
           expected_th = 0.996 * lastattemptbytes+ 10062.4674 * succratio- 10072.2468;
-          std::cout<<"The expected throughput is "<<expected_th<<" for aggregation length:"<<expit->first<<"\n";
+          //////std::cout<<"The expected throughput is "<<expected_th<<" for aggregation length:"<<expit->first<<"\n";
           expit->second = expected_th;
         }
         if (lastattemptbytes <= 219779)
         {
           expected_th = 0.9895 * lastattemptbytes	+ 13692.3711 * succratio- 12493.2365;
-          std::cout<<"The expected throughput is "<<expected_th<<" for aggregation length:"<<expit->first<<"\n";
+          //////std::cout<<"The expected throughput is "<<expected_th<<" for aggregation length:"<<expit->first<<"\n";
           expit->second = expected_th;
         }
         else
         {
           expected_th =0.9185 * lastattemptbytes+ 269778.9299 * succratio	- 248366.0629;
-          std::cout<<"The expected throughput is "<<expected_th<<" for aggregation length:"<<expit->first<<"\n";
+          //////std::cout<<"The expected throughput is "<<expected_th<<" for aggregation length:"<<expit->first<<"\n";
           expit->second = expected_th;
         }
       }
@@ -3770,13 +3899,13 @@ std::tuple<int, float> MinstrelHtWifiManager::m5pmodelplatform(float succratio, 
         if (lastattemptbytes<=302749)
         {
           expected_th = 364.0363 * lastattemptbytes+ 0.9932 * lastattemptbytes- 4332.8353;
-          std::cout<<"The expected throughput is "<<expected_th<<" for aggregation length:"<<expit->first<<"\n";
+          //////std::cout<<"The expected throughput is "<<expected_th<<" for aggregation length:"<<expit->first<<"\n";
           expit->second = expected_th;
         }
         else
         {
           expected_th =  46325.3101 * lastattemptbytes+ 0.9822 * lastattemptbytes	- 551094.1685;
-          std::cout<<"The expected throughput is "<<expected_th<<" for aggregation length:"<<expit->first<<"\n";
+          //////std::cout<<"The expected throughput is "<<expected_th<<" for aggregation length:"<<expit->first<<"\n";
           expit->second = expected_th;
         }
       }
@@ -3786,25 +3915,25 @@ std::tuple<int, float> MinstrelHtWifiManager::m5pmodelplatform(float succratio, 
         if (lastattemptbytes <= 271005 && lastattemptbytes > 9704.5)
         {
           expected_th = 0.9755 * lastattemptbytes	+ 11749.9738 * succratio- 11293.0603;
-          std::cout<<"The expected throughput is "<<expected_th<<" for aggregation length:"<<expit->first<<"\n";
+          //////std::cout<<"The expected throughput is "<<expected_th<<" for aggregation length:"<<expit->first<<"\n";
           expit->second = expected_th;
         }
         if (lastattemptbytes <= 138609.5)
         {
           expected_th = 0.0348 * lastattemptbytes	+ 11113.8254 * succratio- 10272.1386;
-          std::cout<<"The expected throughput is "<<expected_th<<" for aggregation length:"<<expit->first<<"\n";
+          //////std::cout<<"The expected throughput is "<<expected_th<<" for aggregation length:"<<expit->first<<"\n";
           expit->second = expected_th;
         }
         if (lastattemptbytes <= 359310)
         {
           expected_th = 0.9607 * lastattemptbytes	+ 316741.2249 * succratio	- 303848.0974;
-          std::cout<<"The expected throughput is "<<expected_th<<" for aggregation length:"<<expit->first<<"\n";
+          //////std::cout<<"The expected throughput is "<<expected_th<<" for aggregation length:"<<expit->first<<"\n";
           expit->second = expected_th;
         }
         else
         {
           expected_th =  0.7431 * lastattemptbytes+ 609286.362 * succratio- 446990.9487;
-          std::cout<<"The expected throughput is "<<expected_th<<" for aggregation length:"<<expit->first<<"\n";
+          //////std::cout<<"The expected throughput is "<<expected_th<<" for aggregation length:"<<expit->first<<"\n";
           expit->second = expected_th;
         }
       }
@@ -3815,13 +3944,13 @@ std::tuple<int, float> MinstrelHtWifiManager::m5pmodelplatform(float succratio, 
   //MCS3
   if (mcsvalue == 3)
   {
-    std::cout<<"The MCS value is "<<mcsvalue<<"\n";
+    //////std::cout<<"The MCS value is "<<mcsvalue<<"\n";
     for(expit = mcs3agglengthexpth.begin(); expit != mcs3agglengthexpth.end(); expit++)
     {
       if(expit->first == 550)
       {
           expected_th = 0.9672 * lastattemptbytes- 4.7476;
-          std::cout<<"The expected throughput is "<<expected_th<<" for aggregation length:"<<expit->first<<"\n";
+          //////std::cout<<"The expected throughput is "<<expected_th<<" for aggregation length:"<<expit->first<<"\n";
           expit->second = expected_th;
       }
 
@@ -3830,13 +3959,13 @@ std::tuple<int, float> MinstrelHtWifiManager::m5pmodelplatform(float succratio, 
         if (lastattemptbytes > 4011 && lastattemptbytes > 296532)
         {
           expected_th =  0.9773 * lastattemptbytes	+ 482070.1707 * succratio- 49.1777 * gcu- 468461.0774;
-          std::cout<<"The expected throughput is "<<expected_th<<" for aggregation length:"<<expit->first<<"\n";
+          //////std::cout<<"The expected throughput is "<<expected_th<<" for aggregation length:"<<expit->first<<"\n";
           expit->second = expected_th;
         }
         else
         {
           expected_th = 0.9883 * lastattemptbytes	+ 98.3863;
-          std::cout<<"The expected throughput is "<<expected_th<<" for aggregation length:"<<expit->first<<"\n";
+          //////std::cout<<"The expected throughput is "<<expected_th<<" for aggregation length:"<<expit->first<<"\n";
           expit->second = expected_th;
         }
       }
@@ -3847,25 +3976,25 @@ std::tuple<int, float> MinstrelHtWifiManager::m5pmodelplatform(float succratio, 
         if (lastattemptbytes > 3489 && lastattemptbytes > 399289)
         {
           expected_th = 0.9842 * lastattemptbytes	+ 4.4051 * gcu+ 1007.3399;
-          std::cout<<"The expected throughput is "<<expected_th<<" for aggregation length:"<<expit->first<<"\n";
+          //////std::cout<<"The expected throughput is "<<expected_th<<" for aggregation length:"<<expit->first<<"\n";
           expit->second = expected_th;
         }
         if (lastattemptbytes <= 202128)
         {
           expected_th = 0.0336 * lastattemptbytes+ 5.315 * gcu- 191.1861;
-          std::cout<<"The expected throughput is "<<expected_th<<" for aggregation length:"<<expit->first<<"\n";
+          //////std::cout<<"The expected throughput is "<<expected_th<<" for aggregation length:"<<expit->first<<"\n";
           expit->second = expected_th;
         }
         if (lastattemptbytes <= 799678)
         {
           expected_th = 0.7378 * lastattemptbytes+ 752.755 * gcu+ 64994.3402;
-          std::cout<<"The expected throughput is "<<expected_th<<" for aggregation length:"<<expit->first<<"\n";
+          //////std::cout<<"The expected throughput is "<<expected_th<<" for aggregation length:"<<expit->first<<"\n";
           expit->second = expected_th;
         }
         else
         {
           expected_th =  1.0624 * lastattemptbytes- 91866.1708;
-          std::cout<<"The expected throughput is "<<expected_th<<" for aggregation length:"<<expit->first<<"\n";
+          //////std::cout<<"The expected throughput is "<<expected_th<<" for aggregation length:"<<expit->first<<"\n";
           expit->second = expected_th;
         }
 
@@ -3876,25 +4005,25 @@ std::tuple<int, float> MinstrelHtWifiManager::m5pmodelplatform(float succratio, 
         if (lastattemptbytes > 6335 && lastattemptbytes > 299889)
         {
           expected_th = 0.9702 * lastattemptbytes	+ 15411.4263 * succratio- 13454.9991;
-          std::cout<<"The expected throughput is "<<expected_th<<" for aggregation length:"<<expit->first<<"\n";
+          //////std::cout<<"The expected throughput is "<<expected_th<<" for aggregation length:"<<expit->first<<"\n";
           expit->second = expected_th;
         }
         if (lastattemptbytes <= 153632)
         {
           expected_th =0.0321 * lastattemptbytes+ 12046.6541 * succratio- 11209.1007;
-          std::cout<<"The expected throughput is "<<expected_th<<" for aggregation length:"<<expit->first<<"\n";
+          //////std::cout<<"The expected throughput is "<<expected_th<<" for aggregation length:"<<expit->first<<"\n";
           expit->second = expected_th;
         }
         if (lastattemptbytes <= 527511)
         {
           expected_th = 0.9324 * lastattemptbytes	+ 439783.4012 * succratio- 411025.7115;
-          std::cout<<"The expected throughput is "<<expected_th<<" for aggregation length:"<<expit->first<<"\n";
+          //////std::cout<<"The expected throughput is "<<expected_th<<" for aggregation length:"<<expit->first<<"\n";
           expit->second = expected_th;
         }
         else
         {
           expected_th = 0.7903 * lastattemptbytes	+ 876479.1705 * succratio- 716486.5348;
-          std::cout<<"The expected throughput is "<<expected_th<<" for aggregation length:"<<expit->first<<"\n";
+          //////std::cout<<"The expected throughput is "<<expected_th<<" for aggregation length:"<<expit->first<<"\n";
           expit->second = expected_th;
         }
       }
@@ -3905,13 +4034,13 @@ std::tuple<int, float> MinstrelHtWifiManager::m5pmodelplatform(float succratio, 
   //MCS4
   if (mcsvalue == 4)
   {
-    std::cout<<"The MCS value is "<<mcsvalue<<"\n";
+    //////std::cout<<"The MCS value is "<<mcsvalue<<"\n";
     for(expit = mcs4agglengthexpth.begin(); expit != mcs4agglengthexpth.end(); expit++)
     {
       if(expit->first == 550)
       {
           expected_th = 0.9485 * lastattemptbytes	+ 310.9914;
-          std::cout<<"The expected throughput is "<<expected_th<<" for aggregation length:"<<expit->first<<"\n";
+          //////std::cout<<"The expected throughput is "<<expected_th<<" for aggregation length:"<<expit->first<<"\n";
           expit->second = expected_th;
       }
 
@@ -3921,25 +4050,25 @@ std::tuple<int, float> MinstrelHtWifiManager::m5pmodelplatform(float succratio, 
         if (lastattemptbytes > 199759)
         {
           expected_th = 0.9784 * lastattemptbytes	+ 530856.6155 *succratio- 194.9456 * gcu- 508980.2825;
-          std::cout<<"The expected throughput is "<<expected_th<<" for aggregation length:"<<expit->first<<"\n";
+          //////std::cout<<"The expected throughput is "<<expected_th<<" for aggregation length:"<<expit->first<<"\n";
           expit->second = expected_th;
         }
         if (lastattemptbytes <= 2231.5)
         {
           expected_th = 0.023 * lastattemptbytes+ 1246.484 * succratio- 996.0992;
-          std::cout<<"The expected throughput is "<<expected_th<<" for aggregation length:"<<expit->first<<"\n";
+          //////std::cout<<"The expected throughput is "<<expected_th<<" for aggregation length:"<<expit->first<<"\n";
           expit->second = expected_th;
         }
         if (lastattemptbytes <= 106426)
         {
           expected_th = 0.8624 * lastattemptbytes+ 61669.3648 * succratio	- 53298.0278;
-          std::cout<<"The expected throughput is "<<expected_th<<" for aggregation length:"<<expit->first<<"\n";
+          //////std::cout<<"The expected throughput is "<<expected_th<<" for aggregation length:"<<expit->first<<"\n";
           expit->second = expected_th;
         }
         else
         {
           expected_th =  0.9089 * lastattemptbytes+ 139552.2598 * succratio- 127232.2565;
-          std::cout<<"The expected throughput is "<<expected_th<<" for aggregation length:"<<expit->first<<"\n";
+          //////std::cout<<"The expected throughput is "<<expected_th<<" for aggregation length:"<<expit->first<<"\n";
           expit->second = expected_th;
         }
 
@@ -3951,19 +4080,19 @@ std::tuple<int, float> MinstrelHtWifiManager::m5pmodelplatform(float succratio, 
         if (lastattemptbytes > 320550)
         {
           expected_th = 0.9767 * lastattemptbytes	+ 611791.206 * succratio- 596780.9409;
-          std::cout<<"The expected throughput is "<<expected_th<<" for aggregation length:"<<expit->first<<"\n";
+          //////std::cout<<"The expected throughput is "<<expected_th<<" for aggregation length:"<<expit->first<<"\n";
           expit->second = expected_th;
         }
         if (lastattemptbytes  > 3320)
         {
           expected_th = 0.8957 * lastattemptbytes	+ 148562.5908 *succratio+ 209.4038 * gcu- 138577.494;
-          std::cout<<"The expected throughput is "<<expected_th<<" for aggregation length:"<<expit->first<<"\n";
+          //////std::cout<<"The expected throughput is "<<expected_th<<" for aggregation length:"<<expit->first<<"\n";
           expit->second = expected_th;
         }
         else
         {
           expected_th =  0.7635 * lastattemptbytes+ 37.7275;
-          std::cout<<"The expected throughput is "<<expected_th<<" for aggregation length:"<<expit->first<<"\n";
+          //////std::cout<<"The expected throughput is "<<expected_th<<" for aggregation length:"<<expit->first<<"\n";
           expit->second = expected_th;
         }
 
@@ -3974,19 +4103,19 @@ std::tuple<int, float> MinstrelHtWifiManager::m5pmodelplatform(float succratio, 
         if (lastattemptbytes >142691)
         {
           expected_th =0.965 * lastattemptbytes	+ 678434.223 * succratio- 656095.0864;
-          std::cout<<"The expected throughput is "<<expected_th<<" for aggregation length:"<<expit->first<<"\n";
+          //////std::cout<<"The expected throughput is "<<expected_th<<" for aggregation length:"<<expit->first<<"\n";
           expit->second = expected_th;
         }
         if (lastattemptbytes <= 5740)
         {
           expected_th = 36.7155 * lastattemptbytes+ 0.0316 * lastattemptbytes	- 478.5797;
-          std::cout<<"The expected throughput is "<<expected_th<<" for aggregation length:"<<expit->first<<"\n";
+          //////std::cout<<"The expected throughput is "<<expected_th<<" for aggregation length:"<<expit->first<<"\n";
           expit->second = expected_th;
         }
         else
         {
           expected_th =  3898.7353 * lastattemptbytes	+ 0.9661 * lastattemptbytes- 75941.1824;
-          std::cout<<"The expected throughput is "<<expected_th<<" for aggregation length:"<<expit->first<<"\n";
+          //////std::cout<<"The expected throughput is "<<expected_th<<" for aggregation length:"<<expit->first<<"\n";
           expit->second = expected_th;
         }
       }
@@ -3997,13 +4126,13 @@ std::tuple<int, float> MinstrelHtWifiManager::m5pmodelplatform(float succratio, 
   //MCS5
   if (mcsvalue == 5)
   {
-    std::cout<<"The MCS value is "<<mcsvalue<<"\n";
+    //////std::cout<<"The MCS value is "<<mcsvalue<<"\n";
     for(expit = mcs5agglengthexpth.begin(); expit != mcs5agglengthexpth.end(); expit++)
     {
       if(expit->first == 550)
       {
           expected_th =  0.971 * lastattemptbytes	+ 49419.0645 * succratio	- 47274.1827;
-          std::cout<<"The expected throughput is "<<expected_th<<" for aggregation length:"<<expit->first<<"\n";
+          //////std::cout<<"The expected throughput is "<<expected_th<<" for aggregation length:"<<expit->first<<"\n";
           expit->second = expected_th;
       }
 
@@ -4013,25 +4142,25 @@ std::tuple<int, float> MinstrelHtWifiManager::m5pmodelplatform(float succratio, 
         if (lastattemptbytes > 204548 && lastattemptbytes > 3422)
         {
           expected_th = 0.8859 * lastattemptbytes	+ 68974.2735 * succratio- 58946.9454;
-          std::cout<<"The expected throughput is "<<expected_th<<" for aggregation length:"<<expit->first<<"\n";
+          //////std::cout<<"The expected throughput is "<<expected_th<<" for aggregation length:"<<expit->first<<"\n";
           expit->second = expected_th;
         }
         if (lastattemptbytes <= 104356)
         {
           expected_th = 0.0232 * lastattemptbytes	+ 6059.0139 *succratio- 5444.3316;
-          std::cout<<"The expected throughput is "<<expected_th<<" for aggregation length:"<<expit->first<<"\n";
+          //////std::cout<<"The expected throughput is "<<expected_th<<" for aggregation length:"<<expit->first<<"\n";
           expit->second = expected_th;
         }
         if (lastattemptbytes <= 458520)
         {
           expected_th = 0.9567 * lastattemptbytes+ 414732.7451 * succratio- 399890.0929;
-          std::cout<<"The expected throughput is "<<expected_th<<" for aggregation length:"<<expit->first<<"\n";
+          //////std::cout<<"The expected throughput is "<<expected_th<<" for aggregation length:"<<expit->first<<"\n";
           expit->second = expected_th;
         }
         else
         {
           expected_th =  0.9787 * lastattemptbytes+ 692131.8237 * succratio	- 675296.4564;
-          std::cout<<"The expected throughput is "<<expected_th<<" for aggregation length:"<<expit->first<<"\n";
+          //////std::cout<<"The expected throughput is "<<expected_th<<" for aggregation length:"<<expit->first<<"\n";
           expit->second = expected_th;
         }
 
@@ -4042,25 +4171,25 @@ std::tuple<int, float> MinstrelHtWifiManager::m5pmodelplatform(float succratio, 
         if (lastattemptbytes > 8338 && lastattemptbytes <= 216869)
         {
           expected_th = 0.8225 * lastattemptbytes+ 98160.1931 * succratio+ 1.0336 * gcu	- 79199.8743;
-          std::cout<<"The expected throughput is "<<expected_th<<" for aggregation length:"<<expit->first<<"\n";
+          //////std::cout<<"The expected throughput is "<<expected_th<<" for aggregation length:"<<expit->first<<"\n";
           expit->second = expected_th;
         }
         if (lastattemptbytes > 112423 && lastattemptbytes <= 589758)
         {
           expected_th = 0.9595 * lastattemptbytes	+ 847.6563 * gcu- 40580.1413;
-          std::cout<<"The expected throughput is "<<expected_th<<" for aggregation length:"<<expit->first<<"\n";
+          //////std::cout<<"The expected throughput is "<<expected_th<<" for aggregation length:"<<expit->first<<"\n";
           expit->second = expected_th;
         }
         if (lastattemptbytes <= 299784)
         {
           expected_th =0.0357 * lastattemptbytes+ 211.3386;
-          std::cout<<"The expected throughput is "<<expected_th<<" for aggregation length:"<<expit->first<<"\n";
+          //////std::cout<<"The expected throughput is "<<expected_th<<" for aggregation length:"<<expit->first<<"\n";
           expit->second = expected_th;
         }
         else
         {
           expected_th = 0.994 * lastattemptbytes- 18642.3685;
-          std::cout<<"The expected throughput is "<<expected_th<<" for aggregation length:"<<expit->first<<"\n";
+          //////std::cout<<"The expected throughput is "<<expected_th<<" for aggregation length:"<<expit->first<<"\n";
           expit->second = expected_th;
         }
       }
@@ -4070,32 +4199,32 @@ std::tuple<int, float> MinstrelHtWifiManager::m5pmodelplatform(float succratio, 
         if (lastattemptbytes <= 177938 && lastattemptbytes <= 1908)
         {
           expected_th = 0.0509 * lastattemptbytes	+ 7014.5379 * succratio- 6547.4092;
-          std::cout<<"The expected throughput is "<<expected_th<<" for aggregation length:"<<expit->first<<"\n";
+          //////std::cout<<"The expected throughput is "<<expected_th<<" for aggregation length:"<<expit->first<<"\n";
           expit->second = expected_th;
         }
         if (lastattemptbytes <= 479080 && lastattemptbytes > 177938)
         {
           expected_th = -3265.7632 * lastattemptbytes	+ 0.9611 * lastattemptbytes+ 346870.5062 *succratio- 256843.6957;
-          std::cout<<"The expected throughput is "<<expected_th<<" for aggregation length:"<<expit->first<<"\n";
+          //////std::cout<<"The expected throughput is "<<expected_th<<" for aggregation length:"<<expit->first<<"\n";
           expit->second = expected_th;
         }
         if (lastattemptbytes <= 327845)
         {
           expected_th = 0.8723 * lastattemptbytes	+ 24862.7084 * succratio+ 6.3024 * gcu- 19647.0595;
-          std::cout<<"The expected throughput is "<<expected_th<<" for aggregation length:"<<expit->first<<"\n";
+          //////std::cout<<"The expected throughput is "<<expected_th<<" for aggregation length:"<<expit->first<<"\n";
           expit->second = expected_th;
         }
         if (lastattemptbytes <= 1246482 && lastattemptbytes > 575707)
         {
           expected_th = 0.8235 * lastattemptbytes	+ 843712.515 * succratio+ 373.814 * gcu	- 737772.9139;
-          std::cout<<"The expected throughput is "<<expected_th<<" for aggregation length:"<<expit->first<<"\n";
+          //////std::cout<<"The expected throughput is "<<expected_th<<" for aggregation length:"<<expit->first<<"\n";
           expit->second = expected_th;
         }
 
         else
         {
           expected_th =   0.9941 *lastattemptbytes- 7313.4644;
-          std::cout<<"The expected throughput is "<<expected_th<<" for aggregation length:"<<expit->first<<"\n";
+          //////std::cout<<"The expected throughput is "<<expected_th<<" for aggregation length:"<<expit->first<<"\n";
           expit->second = expected_th;
         }
       }
@@ -4106,7 +4235,7 @@ std::tuple<int, float> MinstrelHtWifiManager::m5pmodelplatform(float succratio, 
   //MCS6
   if (mcsvalue == 6)
   {
-    std::cout<<"The MCS value is "<<mcsvalue<<"\n";
+    //////std::cout<<"The MCS value is "<<mcsvalue<<"\n";
     for(expit = mcs6agglengthexpth.begin(); expit != mcs6agglengthexpth.end(); expit++)
     {
       if(expit->first == 550)
@@ -4114,25 +4243,25 @@ std::tuple<int, float> MinstrelHtWifiManager::m5pmodelplatform(float succratio, 
         if (lastattemptbytes <= 61166 && lastattemptbytes > 1627)
         {
           expected_th = 23.4058 * lastattemptbytes+ 1.0016 * lastattemptbytes	- 4198.8261;
-          std::cout<<"The expected throughput is "<<expected_th<<" for aggregation length:"<<expit->first<<"\n";
+          //////std::cout<<"The expected throughput is "<<expected_th<<" for aggregation length:"<<expit->first<<"\n";
           expit->second = expected_th;
         }
         if (lastattemptbytes <= 31501 )
         {
           expected_th = 140.8471 * lastattemptbytes	+ 0.0247 * lastattemptbytes- 3368.5203;
-          std::cout<<"The expected throughput is "<<expected_th<<" for aggregation length:"<<expit->first<<"\n";
+          //////std::cout<<"The expected throughput is "<<expected_th<<" for aggregation length:"<<expit->first<<"\n";
           expit->second = expected_th;
         }
         if (lastattemptbytes > 300840)
         {
           expected_th = 21186.5374 * lastattemptbytes	+ 0.9778 * lastattemptbytes	- 532906.3374;
-          std::cout<<"The expected throughput is "<<expected_th<<" for aggregation length:"<<expit->first<<"\n";
+          //////std::cout<<"The expected throughput is "<<expected_th<<" for aggregation length:"<<expit->first<<"\n";
           expit->second = expected_th;
         }
         else
         {
           expected_th = 0.7978 * lastattemptbytes	+ 15493.9293;
-          std::cout<<"The expected throughput is "<<expected_th<<" for aggregation length:"<<expit->first<<"\n";
+          //////std::cout<<"The expected throughput is "<<expected_th<<" for aggregation length:"<<expit->first<<"\n";
           expit->second = expected_th;
         }
       }
@@ -4143,37 +4272,37 @@ std::tuple<int, float> MinstrelHtWifiManager::m5pmodelplatform(float succratio, 
             if (lastattemptbytes <= 171652 && lastattemptbytes > 3335 && lastattemptbytes <= 8096)
             {
               expected_th = 0.8785 * lastattemptbytes	+ 1666.9202 * succratio- 5162.5654;
-              std::cout<<"The expected throughput is "<<expected_th<<" for aggregation length:"<<expit->first<<"\n";
+              //////std::cout<<"The expected throughput is "<<expected_th<<" for aggregation length:"<<expit->first<<"\n";
               expit->second = expected_th;
             }
             if (lastattemptbytes <= 42240 )
             {
               expected_th = 0.0237 * lastattemptbytes	+ 7147.9122 * succratio	- 6544.7963;
-              std::cout<<"The expected throughput is "<<expected_th<<" for aggregation length:"<<expit->first<<"\n";
+              //////std::cout<<"The expected throughput is "<<expected_th<<" for aggregation length:"<<expit->first<<"\n";
               expit->second = expected_th;
             }
             if (lastattemptbytes <= 367548 && lastattemptbytes > 200688)
             {
               expected_th = 9562.3079 * lastattemptbytes+ 0.9623 * lastattemptbytes	+ 13913.1298 * succratio- 248963.4433;
-              std::cout<<"The expected throughput is "<<expected_th<<" for aggregation length:"<<expit->first<<"\n";
+              //////std::cout<<"The expected throughput is "<<expected_th<<" for aggregation length:"<<expit->first<<"\n";
               expit->second = expected_th;
             }
             if (lastattemptbytes <= 284111)
             {
               expected_th = 0.9617 * lastattemptbytes	+ 16688.7637 * succratio- 17820.9211;
-              std::cout<<"The expected throughput is "<<expected_th<<" for aggregation length:"<<expit->first<<"\n";
+              //////std::cout<<"The expected throughput is "<<expected_th<<" for aggregation length:"<<expit->first<<"\n";
               expit->second = expected_th;
             }
             if (lastattemptbytes <= 926488)
             {
               expected_th = 0.8334 * lastattemptbytes	+ 626530.8477 * succratio	- 535139.6843;
-              std::cout<<"The expected throughput is "<<expected_th<<" for aggregation length:"<<expit->first<<"\n";
+              //////std::cout<<"The expected throughput is "<<expected_th<<" for aggregation length:"<<expit->first<<"\n";
               expit->second = expected_th;
             }
             else
             {
               expected_th =  0.9797 * lastattemptbytes+ 4861.3531;
-              std::cout<<"The expected throughput is "<<expected_th<<" for aggregation length:"<<expit->first<<"\n";
+              //////std::cout<<"The expected throughput is "<<expected_th<<" for aggregation length:"<<expit->first<<"\n";
               expit->second = expected_th;
             }
 
@@ -4184,43 +4313,43 @@ std::tuple<int, float> MinstrelHtWifiManager::m5pmodelplatform(float succratio, 
         if (lastattemptbytes > 161958)
         {
           expected_th = -9260.9131 * lastattemptbytes	+ 0.9708 *lastattemptbytes+ 779952.7734 *succratio-523359.9254;
-          std::cout<<"The expected throughput is "<<expected_th<<" for aggregation length:"<<expit->first<<"\n";
+          //////std::cout<<"The expected throughput is "<<expected_th<<" for aggregation length:"<<expit->first<<"\n";
           expit->second = expected_th;
         }
         if (lastattemptbytes <= 3298 )
         {
           expected_th = 0.0308 * lastattemptbytes	+ 1726.6335 *succratio- 2.9828 * gcu- 1253.645;
-          std::cout<<"The expected throughput is "<<expected_th<<" for aggregation length:"<<expit->first<<"\n";
+          //////std::cout<<"The expected throughput is "<<expected_th<<" for aggregation length:"<<expit->first<<"\n";
           expit->second = expected_th;
         }
         if (lastattemptbytes > 100218)
         {
           expected_th =0.8444 * lastattemptbytes+ 117836.9414 * succratio+ 5.3214 *gcu- 99717.4501;
-          std::cout<<"The expected throughput is "<<expected_th<<" for aggregation length:"<<expit->first<<"\n";
+          //////std::cout<<"The expected throughput is "<<expected_th<<" for aggregation length:"<<expit->first<<"\n";
           expit->second = expected_th;
         }
         if (lastattemptbytes <= 59476 && lastattemptbytes > 34282)
         {
           expected_th = 0.7344 *lastattemptbytes+ 47363.937 *succratio- 34965.1629;
-          std::cout<<"The expected throughput is "<<expected_th<<" for aggregation length:"<<expit->first<<"\n";
+          //////std::cout<<"The expected throughput is "<<expected_th<<" for aggregation length:"<<expit->first<<"\n";
           expit->second = expected_th;
         }
         if (succratio <= 0.709 && lastattemptbytes > 60624)
         {
           expected_th = 0.6245 * lastattemptbytes	+ 80036.2109 *succratio- 49914.1271;
-          std::cout<<"The expected throughput is "<<expected_th<<" for aggregation length:"<<expit->first<<"\n";
+          //////std::cout<<"The expected throughput is "<<expected_th<<" for aggregation length:"<<expit->first<<"\n";
           expit->second = expected_th;
         }
         if (lastattemptbytes > 46782)
         {
           expected_th = 0.8563 * lastattemptbytes	+ 67385.3781 * succratio- 57890.2951;
-          std::cout<<"The expected throughput is "<<expected_th<<" for aggregation length:"<<expit->first<<"\n";
+          //////std::cout<<"The expected throughput is "<<expected_th<<" for aggregation length:"<<expit->first<<"\n";
           expit->second = expected_th;
         }
         else
         {
           expected_th =  0.6977 * lastattemptbytes+ 1551.5932;
-          std::cout<<"The expected throughput is "<<expected_th<<" for aggregation length:"<<expit->first<<"\n";
+          //////std::cout<<"The expected throughput is "<<expected_th<<" for aggregation length:"<<expit->first<<"\n";
           expit->second = expected_th;
         }
       }
@@ -4230,20 +4359,20 @@ std::tuple<int, float> MinstrelHtWifiManager::m5pmodelplatform(float succratio, 
         if (lastattemptbytes <= 582636 && lastattemptbytes >122502)
         {
           expected_th = 0.9558 * lastattemptbytes+ 305963.2834 *succratio	+ 56.5189 * gcu- 295397.3707;
-          std::cout<<"The expected throughput is "<<expected_th<<" for aggregation length:"<<expit->first<<"\n";
+          //////std::cout<<"The expected throughput is "<<expected_th<<" for aggregation length:"<<expit->first<<"\n";
           expit->second = expected_th;
         }
 
         if (lastattemptbytes <= 352543)
         {
           expected_th = 0.9679 * lastattemptbytes+ 10630.9312 * succratio	- 10315.7868;
-          std::cout<<"The expected throughput is "<<expected_th<<" for aggregation length:"<<expit->first<<"\n";
+          //////std::cout<<"The expected throughput is "<<expected_th<<" for aggregation length:"<<expit->first<<"\n";
           expit->second = expected_th;
         }
         else
         {
           expected_th =  0.971 * lastattemptbytes	+ 942565.6878 *succratio+ 281.3889 *gcu- 930400.2033;
-          std::cout<<"The expected throughput is "<<expected_th<<" for aggregation length:"<<expit->first<<"\n";
+          //////std::cout<<"The expected throughput is "<<expected_th<<" for aggregation length:"<<expit->first<<"\n";
           expit->second = expected_th;
         }
       }
@@ -4254,7 +4383,7 @@ std::tuple<int, float> MinstrelHtWifiManager::m5pmodelplatform(float succratio, 
   //MCS7
   if (mcsvalue == 7)
   {
-    std::cout<<"The MCS value is "<<mcsvalue<<"\n";
+    //////std::cout<<"The MCS value is "<<mcsvalue<<"\n";
     for(expit = mcs7agglengthexpth.begin(); expit != mcs7agglengthexpth.end(); expit++)
     {
       if(expit->first == 550)
@@ -4262,19 +4391,19 @@ std::tuple<int, float> MinstrelHtWifiManager::m5pmodelplatform(float succratio, 
         if (lastattemptbytes <= 71484 && lastattemptbytes > 1790)
         {
           expected_th = 1.006 * lastattemptbytes+ 625.0678 *succratio	+ 2.1483 *gcu	- 4395.3437;
-          std::cout<<"The expected throughput is "<<expected_th<<" for aggregation length:"<<expit->first<<"\n";
+          //////std::cout<<"The expected throughput is "<<expected_th<<" for aggregation length:"<<expit->first<<"\n";
           expit->second = expected_th;
         }
         if (lastattemptbytes <= 36911)
         {
           expected_th = 0.0233 * lastattemptbytes	+ 2185.3303 *succratio+ 3.48 * gcu- 1956.8102;
-          std::cout<<"The expected throughput is "<<expected_th<<" for aggregation length:"<<expit->first<<"\n";
+          //////std::cout<<"The expected throughput is "<<expected_th<<" for aggregation length:"<<expit->first<<"\n";
           expit->second = expected_th;
         }
         else
         {
           expected_th = 0.9629 * lastattemptbytes	+ 324594.597 *succratio+ 373.6267 * gcu- 320463.531;
-          std::cout<<"The expected throughput is "<<expected_th<<" for aggregation length:"<<expit->first<<"\n";
+          //////std::cout<<"The expected throughput is "<<expected_th<<" for aggregation length:"<<expit->first<<"\n";
           expit->second = expected_th;
         }
       }
@@ -4284,25 +4413,25 @@ std::tuple<int, float> MinstrelHtWifiManager::m5pmodelplatform(float succratio, 
         if (lastattemptbytes <= 204300 && lastattemptbytes > 3228)
         {
           expected_th = -28.8594 * lastattemptbytes+ 0.9165 *lastattemptbytes+ 61115.0822 *succratio- 53038.9563;
-          std::cout<<"The expected throughput is "<<expected_th<<" for aggregation length:"<<expit->first<<"\n";
+          //////std::cout<<"The expected throughput is "<<expected_th<<" for aggregation length:"<<expit->first<<"\n";
           expit->second = expected_th;
         }
         if (lastattemptbytes <= 103818)
         {
           expected_th = 0.0246 * lastattemptbytes	+ 6875.8503 *succratio- 6404.1852;
-          std::cout<<"The expected throughput is "<<expected_th<<" for aggregation length:"<<expit->first<<"\n";
+          //////std::cout<<"The expected throughput is "<<expected_th<<" for aggregation length:"<<expit->first<<"\n";
           expit->second = expected_th;
         }
         if (lastattemptbytes <= 823228 && lastattemptbytes <= 340236)
         {
           expected_th = -92.5032 * lastattemptbytes	+ 0.997 *lastattemptbytes+ 58707.1973 *succratio- 58475.3998;
-          std::cout<<"The expected throughput is "<<expected_th<<" for aggregation length:"<<expit->first<<"\n";
+          //////std::cout<<"The expected throughput is "<<expected_th<<" for aggregation length:"<<expit->first<<"\n";
           expit->second = expected_th;
         }
         else
         {
           expected_th = -2015.1501 * lastattemptbytes	+ 0.9802 * lastattemptbytes	+ 705177.8561 *succratio- 637704.6921;
-          std::cout<<"The expected throughput is "<<expected_th<<" for aggregation length:"<<expit->first<<"\n";
+          //////std::cout<<"The expected throughput is "<<expected_th<<" for aggregation length:"<<expit->first<<"\n";
           expit->second = expected_th;
         }
 
@@ -4313,31 +4442,31 @@ std::tuple<int, float> MinstrelHtWifiManager::m5pmodelplatform(float succratio, 
         if (lastattemptbytes > 215140)
         {
           expected_th = 0.9847 * lastattemptbytes	+ 970053.6998 *succratio- 958352.4903;
-          std::cout<<"The expected throughput is "<<expected_th<<" for aggregation length:"<<expit->first<<"\n";
+          //////std::cout<<"The expected throughput is "<<expected_th<<" for aggregation length:"<<expit->first<<"\n";
           expit->second = expected_th;
         }
         if (lastattemptbytes <= 3307)
         {
           expected_th =0.0307 * lastattemptbytes+ 1672.7705 *succratio- 1347.6581;
-          std::cout<<"The expected throughput is "<<expected_th<<" for aggregation length:"<<expit->first<<"\n";
+          //////std::cout<<"The expected throughput is "<<expected_th<<" for aggregation length:"<<expit->first<<"\n";
           expit->second = expected_th;
         }
         if (lastattemptbytes <= 105648 && lastattemptbytes > 58342)
         {
           expected_th = 0.7159 * lastattemptbytes	+ 71980.7607 *succratio- 51997.0097;
-          std::cout<<"The expected throughput is "<<expected_th<<" for aggregation length:"<<expit->first<<"\n";
+          //////std::cout<<"The expected throughput is "<<expected_th<<" for aggregation length:"<<expit->first<<"\n";
           expit->second = expected_th;
         }
         if (lastattemptbytes > 81994)
         {
           expected_th = 0.9182 *lastattemptbytes+ 132421.7567 *succratio- 120883.7946;
-          std::cout<<"The expected throughput is "<<expected_th<<" for aggregation length:"<<expit->first<<"\n";
+          //////std::cout<<"The expected throughput is "<<expected_th<<" for aggregation length:"<<expit->first<<"\n";
           expit->second = expected_th;
         }
         else
         {
           expected_th = 0.781 * lastattemptbytes+ 38864.9208 *succratio- 31018.4872;
-          std::cout<<"The expected throughput is "<<expected_th<<" for aggregation length:"<<expit->first<<"\n";
+          //////std::cout<<"The expected throughput is "<<expected_th<<" for aggregation length:"<<expit->first<<"\n";
           expit->second = expected_th;
         }
       }
@@ -4347,31 +4476,31 @@ std::tuple<int, float> MinstrelHtWifiManager::m5pmodelplatform(float succratio, 
         if (lastattemptbytes <= 150471)
         {
           expected_th = 0.9745 *lastattemptbytes+ 9490.867 *succratio	- 9361.1607;
-          std::cout<<"The expected throughput is "<<expected_th<<" for aggregation length:"<<expit->first<<"\n";
+          //////std::cout<<"The expected throughput is "<<expected_th<<" for aggregation length:"<<expit->first<<"\n";
           expit->second = expected_th;
         }
         if (lastattemptbytes <= 700755 && lastattemptbytes > 377093)
         {
           expected_th = 0.9392 * lastattemptbytes	+ 604756.0313 * succratio- 133.5164 * gcu- 563017.9272;
-          std::cout<<"The expected throughput is "<<expected_th<<" for aggregation length:"<<expit->first<<"\n";
+          //////std::cout<<"The expected throughput is "<<expected_th<<" for aggregation length:"<<expit->first<<"\n";
           expit->second = expected_th;
         }
         if (lastattemptbytes <= 537868)
         {
           expected_th = 0.9346 *lastattemptbytes+ 48633.9 *succratio- 34588.06;
-          std::cout<<"The expected throughput is "<<expected_th<<" for aggregation length:"<<expit->first<<"\n";
+          //////std::cout<<"The expected throughput is "<<expected_th<<" for aggregation length:"<<expit->first<<"\n";
           expit->second = expected_th;
         }
         if (lastattemptbytes <= 1111286)
         {
           expected_th = 0.8931 * lastattemptbytes+ 924526.5434 *succratio	- 828108.3156;
-          std::cout<<"The expected throughput is "<<expected_th<<" for aggregation length:"<<expit->first<<"\n";
+          //////std::cout<<"The expected throughput is "<<expected_th<<" for aggregation length:"<<expit->first<<"\n";
           expit->second = expected_th;
         }
         else
         {
           expected_th = 0.9494 *lastattemptbytes+ 1794047.6379 * succratio- 1708470.0128;
-          std::cout<<"The expected throughput is "<<expected_th<<" for aggregation length:"<<expit->first<<"\n";
+          //////std::cout<<"The expected throughput is "<<expected_th<<" for aggregation length:"<<expit->first<<"\n";
           expit->second = expected_th;
         }
       }
@@ -4423,7 +4552,7 @@ std::tuple<int, float> MinstrelHtWifiManager::m5pmodelplatform(float succratio, 
 
       if(bannedagglengthcounterperstation[stadd][agglengthtoindexmap[previousaggregationlengthperstation[stadd]]] == 0)
       {
-        std::cout<<"\n";
+        //////std::cout<<"\n";
         bannedagglengthcounterperstation[stadd][agglengthtoindexmap[previousaggregationlengthperstation[stadd]]] = 10;
 
       }
@@ -4439,7 +4568,7 @@ std::tuple<int, float> MinstrelHtWifiManager::m5pmodelplatform(float succratio, 
     {
       if(bannedagglengthcounterperstation[stadd][agglengthtoindexmap[highexpagglength]] == 0)
       {
-        std::cout<<"\n";
+        //////std::cout<<"\n";
         bannedagglengthcounterperstation[stadd][agglengthtoindexmap[highexpagglength]] = 10;
 
       }
@@ -4485,7 +4614,7 @@ std::tuple<int, float> MinstrelHtWifiManager::m5pmodelplatform(float succratio, 
 
   //int lastagglength = highexpagglength;
 
-  std::cout<<"The expected throughput is "<<highestexp<<" for aggregation length:"<<highexpagglength<<"\n";
+  //////std::cout<<"The expected throughput is "<<highestexp<<" for aggregation length:"<<highexpagglength<<"\n";
   return std::make_tuple(highexpagglength,highestexp);
 
 }
@@ -4499,20 +4628,20 @@ int MinstrelHtWifiManager::comparelastandcurrentplatform (float succratio, float
 
     //only the exp_th values
     difference = (std::get<1>(m5pmodelplatform(succratio, gcu, lastattemptbytes, minstrel_th, currmcs, stadd)) - std::get<1>(m5pmodelplatform(succratio, gcu, lastattemptbytes, minstrel_th, lastmcs, stadd)))/std::get<1>(m5pmodelplatform(succratio, gcu, lastattemptbytes, minstrel_th, lastmcs, stadd));
-    std::cout<<"At the station MAC:"<<stadd<<" the current expected throughput is "<<std::get<1>(m5pmodelplatform(succratio, gcu, lastattemptbytes, minstrel_th, currmcs, stadd))<<" the last expected throughput is "<<std::get<1>(m5pmodelplatform(succratio, gcu, lastattemptbytes, minstrel_th, lastmcs, stadd))<< "\n";
+    //////std::cout<<"At the station MAC:"<<stadd<<" the current expected throughput is "<<std::get<1>(m5pmodelplatform(succratio, gcu, lastattemptbytes, minstrel_th, currmcs, stadd))<<" the last expected throughput is "<<std::get<1>(m5pmodelplatform(succratio, gcu, lastattemptbytes, minstrel_th, lastmcs, stadd))<< "\n";
     if (difference < 0.05)
     {
       //derive agg length
-      //std::cout<<"ad";
+      ///std::cout<<"ad";
       agglength = std::get<0>(m5pmodelplatform(succratio, gcu, lastattemptbytes, minstrel_th, lastmcs, stadd));
     }
     else
     {
-      //std::cout<<"ad";
+      ///std::cout<<"ad";
       agglength = std::get<0>(m5pmodelplatform(succratio, gcu, lastattemptbytes, minstrel_th, currmcs, stadd));
     }
 
-
+    maxagglengthperstation[stadd][agglengthtoindexmap[agglength]]++;
     return agglength;
   }
 
@@ -4526,7 +4655,7 @@ int MinstrelHtWifiManager::comparelastandcurrentplatform (float succratio, float
   {
     PyObject *len1load, *len2load, *len3load, *len4load,*file1args, *file2args, *file3args, *file4args;
     Py_Initialize();
-    //std::cout<<"before imprt\n";
+    ///std::cout<<"before imprt\n";
     PyRun_SimpleString("from sklearn.externals import joblib\n"
                        "import pandas\n"
                        "import os\n");//pickle and joblib gives the
@@ -4540,14 +4669,14 @@ int MinstrelHtWifiManager::comparelastandcurrentplatform (float succratio, float
     PyList_SET_ITEM(xdatatup, 0, xdata);
     //PyObject* objectsRepresentation = PyObject_Repr(xdatatup);
     //const char* s = PyString_AsString(objectsRepresentation);
-    //std::cout<<"xdatatup:"<<s<<"\n";
+    ///std::cout<<"xdatatup:"<<s<<"\n";
     PyObject* xfeatures = PyList_New(4);
     PyList_SET_ITEM(xfeatures, 0, PyString_FromString("Mins_Th"));
     PyList_SET_ITEM(xfeatures, 1, PyString_FromString("Last_Att_Bytes"));
     PyList_SET_ITEM(xfeatures, 2, PyString_FromString("SUCCRATIO"));
     PyList_SET_ITEM(xfeatures, 3, PyString_FromString("Gcu"));
 
-    //std::cout<<"xdta size:"<<PyTuple_GET_SIZE(xdata)<<"\n";
+    ///std::cout<<"xdta size:"<<PyTuple_GET_SIZE(xdata)<<"\n";
     PyObject* pModulepd = PyImport_Import(PyString_FromString((char*)"pandas"));
     PyObject* pFuncpd = PyObject_GetAttrString(pModulepd, (char*)"DataFrame");
     PyObject* args = PyTuple_Pack(1, xdatatup);
@@ -4559,12 +4688,12 @@ int MinstrelHtWifiManager::comparelastandcurrentplatform (float succratio, float
 
     /*PyObject* fileargs = PyTuple_Pack(1, PyString_FromString((char*)"/home/antfbk/NS3/repos/ns-3-allinone/ns-3-29-d977712d48a0/RFns3/mcs0_550.pkl"));
     PyObject* lenload = PyObject_CallObject(jblen1load, fileargs);
-    std::cout<<lenload<<" end\n";*/
+    //////std::cout<<lenload<<" end\n";*/
     /*PyRun_SimpleString( "file = open('/home/antfbk/NS3/repos/ns-3-allinone/ns-3-29-d977712d48a0/RFns3/mcs0_1024.pkl','rb')\n"
                         "x=joblib.load('/home/antfbk/NS3/repos/ns-3-allinone/ns-3-29-d977712d48a0/RFns3/mcs0_1024.pkl')\n"//file is not found//pickle.load is loaded wth rght file name
                         "file.close()\n"
                         "print(x)\n");*///only joblib refcount
-    //std::cout<<"PVALUE:"<<f<<"\n";
+    ///std::cout<<"PVALUE:"<<f<<"\n";
     if (mcsvalue == 0)
     {
       //PyObject* jblen1mod = PyImport_Import(PyString_FromString((char*)"pandas"));
@@ -4584,7 +4713,7 @@ int MinstrelHtWifiManager::comparelastandcurrentplatform (float succratio, float
            testobj = PyObject_Repr(PyObject_GetItem(PyObject_CallObject(PyObject_GetAttrString(len1load, (char*)"predict"),PyTuple_Pack(1,xtest)), PyLong_FromLong(0)));
            char* mcs0sa550 = PyString_AsString(testobj);
            expected_th =  atof(mcs0sa550);
-           //std::cout<<"Expected Th:"<<expected_th<<"\n";
+           ///std::cout<<"Expected Th:"<<expected_th<<"\n";
            expit->second = expected_th;
          }
 
@@ -4593,7 +4722,7 @@ int MinstrelHtWifiManager::comparelastandcurrentplatform (float succratio, float
            testobj = PyObject_Repr(PyObject_GetItem(PyObject_CallObject(PyObject_GetAttrString(len2load, (char*)"predict"),PyTuple_Pack(1,xtest)), PyLong_FromLong(0)));
            char* mcs0sa1024 = PyString_AsString(testobj);
            expected_th =  atof(mcs0sa1024);
-           //std::cout<<"Expected Th:"<<expected_th<<"\n";
+           ///std::cout<<"Expected Th:"<<expected_th<<"\n";
            expit->second = expected_th;
          }
 
@@ -4602,7 +4731,7 @@ int MinstrelHtWifiManager::comparelastandcurrentplatform (float succratio, float
            testobj = PyObject_Repr(PyObject_GetItem(PyObject_CallObject(PyObject_GetAttrString(len3load, (char*)"predict"),PyTuple_Pack(1,xtest)), PyLong_FromLong(0)));
            char* mcs0sa2048 = PyString_AsString(testobj);
            expected_th =  atof(mcs0sa2048);
-           //std::cout<<"Expected Th:"<<expected_th<<"\n";
+           ///std::cout<<"Expected Th:"<<expected_th<<"\n";
            expit->second = expected_th;
          }
 
@@ -4611,7 +4740,7 @@ int MinstrelHtWifiManager::comparelastandcurrentplatform (float succratio, float
            testobj = PyObject_Repr(PyObject_GetItem(PyObject_CallObject(PyObject_GetAttrString(len4load, (char*)"predict"),PyTuple_Pack(1,xtest)), PyLong_FromLong(0)));
            char* mcs0sa3839 = PyString_AsString(testobj);
            expected_th =  atof(mcs0sa3839);
-           //std::cout<<"Expected Th:"<<expected_th<<"\n";
+           ///std::cout<<"Expected Th:"<<expected_th<<"\n";
            expit->second = expected_th;
          }
        }
@@ -4636,7 +4765,7 @@ int MinstrelHtWifiManager::comparelastandcurrentplatform (float succratio, float
            testobj = PyObject_Repr(PyObject_GetItem(PyObject_CallObject(PyObject_GetAttrString(len1load, (char*)"predict"),PyTuple_Pack(1,xtest)), PyLong_FromLong(0)));
            char* mcs1sa550 = PyString_AsString(testobj);
            expected_th =  atof(mcs1sa550);
-           //std::cout<<"Expected Th:"<<expected_th<<"\n";
+           ///std::cout<<"Expected Th:"<<expected_th<<"\n";
            expit->second = expected_th;
          }
 
@@ -4645,7 +4774,7 @@ int MinstrelHtWifiManager::comparelastandcurrentplatform (float succratio, float
            testobj = PyObject_Repr(PyObject_GetItem(PyObject_CallObject(PyObject_GetAttrString(len2load, (char*)"predict"),PyTuple_Pack(1,xtest)), PyLong_FromLong(0)));
            char* mcs1sa1024 = PyString_AsString(testobj);
            expected_th =  atof(mcs1sa1024);
-           //std::cout<<"Expected Th:"<<expected_th<<"\n";
+           ///std::cout<<"Expected Th:"<<expected_th<<"\n";
            expit->second = expected_th;
          }
 
@@ -4654,7 +4783,7 @@ int MinstrelHtWifiManager::comparelastandcurrentplatform (float succratio, float
            testobj = PyObject_Repr(PyObject_GetItem(PyObject_CallObject(PyObject_GetAttrString(len3load, (char*)"predict"),PyTuple_Pack(1,xtest)), PyLong_FromLong(0)));
            char* mcs1sa2048 = PyString_AsString(testobj);
            expected_th =  atof(mcs1sa2048);
-           //std::cout<<"Expected Th:"<<expected_th<<"\n";
+           ///std::cout<<"Expected Th:"<<expected_th<<"\n";
            expit->second = expected_th;
          }
 
@@ -4663,7 +4792,7 @@ int MinstrelHtWifiManager::comparelastandcurrentplatform (float succratio, float
            testobj = PyObject_Repr(PyObject_GetItem(PyObject_CallObject(PyObject_GetAttrString(len4load, (char*)"predict"),PyTuple_Pack(1,xtest)), PyLong_FromLong(0)));
            char* mcs1sa3839 = PyString_AsString(testobj);
            expected_th =  atof(mcs1sa3839);
-           //std::cout<<"Expected Th:"<<expected_th<<"\n";
+           ///std::cout<<"Expected Th:"<<expected_th<<"\n";
            expit->second = expected_th;
          }
        }
@@ -4688,7 +4817,7 @@ int MinstrelHtWifiManager::comparelastandcurrentplatform (float succratio, float
            testobj = PyObject_Repr(PyObject_GetItem(PyObject_CallObject(PyObject_GetAttrString(len1load, (char*)"predict"),PyTuple_Pack(1,xtest)), PyLong_FromLong(0)));
            char* mcs2sa550 = PyString_AsString(testobj);
            expected_th =  atof(mcs2sa550);
-           //std::cout<<"Expected Th:"<<expected_th<<"\n";
+           ///std::cout<<"Expected Th:"<<expected_th<<"\n";
            expit->second = expected_th;
          }
 
@@ -4697,7 +4826,7 @@ int MinstrelHtWifiManager::comparelastandcurrentplatform (float succratio, float
            testobj = PyObject_Repr(PyObject_GetItem(PyObject_CallObject(PyObject_GetAttrString(len2load, (char*)"predict"),PyTuple_Pack(1,xtest)), PyLong_FromLong(0)));
            char* mcs2sa1024 = PyString_AsString(testobj);
            expected_th =  atof(mcs2sa1024);
-           //std::cout<<"Expected Th:"<<expected_th<<"\n";
+           ///std::cout<<"Expected Th:"<<expected_th<<"\n";
            expit->second = expected_th;
          }
 
@@ -4706,7 +4835,7 @@ int MinstrelHtWifiManager::comparelastandcurrentplatform (float succratio, float
            testobj = PyObject_Repr(PyObject_GetItem(PyObject_CallObject(PyObject_GetAttrString(len3load, (char*)"predict"),PyTuple_Pack(1,xtest)), PyLong_FromLong(0)));
            char* mcs2sa2048 = PyString_AsString(testobj);
            expected_th =  atof(mcs2sa2048);
-           //std::cout<<"Expected Th:"<<expected_th<<"\n";
+           ///std::cout<<"Expected Th:"<<expected_th<<"\n";
            expit->second = expected_th;
          }
 
@@ -4715,7 +4844,7 @@ int MinstrelHtWifiManager::comparelastandcurrentplatform (float succratio, float
            testobj = PyObject_Repr(PyObject_GetItem(PyObject_CallObject(PyObject_GetAttrString(len4load, (char*)"predict"),PyTuple_Pack(1,xtest)), PyLong_FromLong(0)));
            char* mcs2sa3839 = PyString_AsString(testobj);
            expected_th =  atof(mcs2sa3839);
-           //std::cout<<"Expected Th:"<<expected_th<<"\n";
+           ///std::cout<<"Expected Th:"<<expected_th<<"\n";
            expit->second = expected_th;
          }
        }
@@ -4740,7 +4869,7 @@ int MinstrelHtWifiManager::comparelastandcurrentplatform (float succratio, float
            testobj = PyObject_Repr(PyObject_GetItem(PyObject_CallObject(PyObject_GetAttrString(len1load, (char*)"predict"),PyTuple_Pack(1,xtest)), PyLong_FromLong(0)));
            char* mcs3sa550 = PyString_AsString(testobj);
            expected_th =  atof(mcs3sa550);
-           //std::cout<<"Expected Th:"<<expected_th<<"\n";
+           ///std::cout<<"Expected Th:"<<expected_th<<"\n";
            expit->second = expected_th;
          }
 
@@ -4749,7 +4878,7 @@ int MinstrelHtWifiManager::comparelastandcurrentplatform (float succratio, float
            testobj = PyObject_Repr(PyObject_GetItem(PyObject_CallObject(PyObject_GetAttrString(len2load, (char*)"predict"),PyTuple_Pack(1,xtest)), PyLong_FromLong(0)));
            char* mcs3sa1024 = PyString_AsString(testobj);
            expected_th =  atof(mcs3sa1024);
-           //std::cout<<"Expected Th:"<<expected_th<<"\n";
+           ///std::cout<<"Expected Th:"<<expected_th<<"\n";
            expit->second = expected_th;
          }
 
@@ -4758,7 +4887,7 @@ int MinstrelHtWifiManager::comparelastandcurrentplatform (float succratio, float
            testobj = PyObject_Repr(PyObject_GetItem(PyObject_CallObject(PyObject_GetAttrString(len3load, (char*)"predict"),PyTuple_Pack(1,xtest)), PyLong_FromLong(0)));
            char* mcs3sa2048 = PyString_AsString(testobj);
            expected_th =  atof(mcs3sa2048);
-           //std::cout<<"Expected Th:"<<expected_th<<"\n";
+           ///std::cout<<"Expected Th:"<<expected_th<<"\n";
            expit->second = expected_th;
          }
 
@@ -4767,7 +4896,7 @@ int MinstrelHtWifiManager::comparelastandcurrentplatform (float succratio, float
            testobj = PyObject_Repr(PyObject_GetItem(PyObject_CallObject(PyObject_GetAttrString(len4load, (char*)"predict"),PyTuple_Pack(1,xtest)), PyLong_FromLong(0)));
            char* mcs3sa3839 = PyString_AsString(testobj);
            expected_th =  atof(mcs3sa3839);
-           //std::cout<<"Expected Th:"<<expected_th<<"\n";
+           ///std::cout<<"Expected Th:"<<expected_th<<"\n";
            expit->second = expected_th;
          }
        }
@@ -4791,7 +4920,7 @@ int MinstrelHtWifiManager::comparelastandcurrentplatform (float succratio, float
            testobj = PyObject_Repr(PyObject_GetItem(PyObject_CallObject(PyObject_GetAttrString(len1load, (char*)"predict"),PyTuple_Pack(1,xtest)), PyLong_FromLong(0)));
            char* mcs4sa550 = PyString_AsString(testobj);
            expected_th =  atof(mcs4sa550);
-           //std::cout<<"Expected Th:"<<expected_th<<"\n";
+           ///std::cout<<"Expected Th:"<<expected_th<<"\n";
            expit->second = expected_th;
          }
 
@@ -4800,7 +4929,7 @@ int MinstrelHtWifiManager::comparelastandcurrentplatform (float succratio, float
            testobj = PyObject_Repr(PyObject_GetItem(PyObject_CallObject(PyObject_GetAttrString(len2load, (char*)"predict"),PyTuple_Pack(1,xtest)), PyLong_FromLong(0)));
            char* mcs4sa1024 = PyString_AsString(testobj);
            expected_th =  atof(mcs4sa1024);
-           //std::cout<<"Expected Th:"<<expected_th<<"\n";
+           ///std::cout<<"Expected Th:"<<expected_th<<"\n";
            expit->second = expected_th;
          }
 
@@ -4809,7 +4938,7 @@ int MinstrelHtWifiManager::comparelastandcurrentplatform (float succratio, float
            testobj = PyObject_Repr(PyObject_GetItem(PyObject_CallObject(PyObject_GetAttrString(len3load, (char*)"predict"),PyTuple_Pack(1,xtest)), PyLong_FromLong(0)));
            char* mcs4sa2048 = PyString_AsString(testobj);
            expected_th =  atof(mcs4sa2048);
-           //std::cout<<"Expected Th:"<<expected_th<<"\n";
+           ///std::cout<<"Expected Th:"<<expected_th<<"\n";
            expit->second = expected_th;
          }
 
@@ -4818,7 +4947,7 @@ int MinstrelHtWifiManager::comparelastandcurrentplatform (float succratio, float
            testobj = PyObject_Repr(PyObject_GetItem(PyObject_CallObject(PyObject_GetAttrString(len4load, (char*)"predict"),PyTuple_Pack(1,xtest)), PyLong_FromLong(0)));
            char* mcs4sa3839 = PyString_AsString(testobj);
            expected_th =  atof(mcs4sa3839);
-           //std::cout<<"Expected Th:"<<expected_th<<"\n";
+           ///std::cout<<"Expected Th:"<<expected_th<<"\n";
            expit->second = expected_th;
          }
        }
@@ -4842,7 +4971,7 @@ int MinstrelHtWifiManager::comparelastandcurrentplatform (float succratio, float
            testobj = PyObject_Repr(PyObject_GetItem(PyObject_CallObject(PyObject_GetAttrString(len1load, (char*)"predict"),PyTuple_Pack(1,xtest)), PyLong_FromLong(0)));
            char* mcs5sa550 = PyString_AsString(testobj);
            expected_th =  atof(mcs5sa550);
-           //std::cout<<"Expected Th:"<<expected_th<<"\n";
+           ///std::cout<<"Expected Th:"<<expected_th<<"\n";
            expit->second = expected_th;
          }
 
@@ -4851,7 +4980,7 @@ int MinstrelHtWifiManager::comparelastandcurrentplatform (float succratio, float
            testobj = PyObject_Repr(PyObject_GetItem(PyObject_CallObject(PyObject_GetAttrString(len2load, (char*)"predict"),PyTuple_Pack(1,xtest)), PyLong_FromLong(0)));
            char* mcs5sa1024 = PyString_AsString(testobj);
            expected_th =  atof(mcs5sa1024);
-           //std::cout<<"Expected Th:"<<expected_th<<"\n";
+           ///std::cout<<"Expected Th:"<<expected_th<<"\n";
            expit->second = expected_th;
          }
 
@@ -4860,7 +4989,7 @@ int MinstrelHtWifiManager::comparelastandcurrentplatform (float succratio, float
            testobj = PyObject_Repr(PyObject_GetItem(PyObject_CallObject(PyObject_GetAttrString(len3load, (char*)"predict"),PyTuple_Pack(1,xtest)), PyLong_FromLong(0)));
            char* mcs5sa2048 = PyString_AsString(testobj);
            expected_th =  atof(mcs5sa2048);
-           //std::cout<<"Expected Th:"<<expected_th<<"\n";
+           ///std::cout<<"Expected Th:"<<expected_th<<"\n";
            expit->second = expected_th;
          }
 
@@ -4869,7 +4998,7 @@ int MinstrelHtWifiManager::comparelastandcurrentplatform (float succratio, float
            testobj = PyObject_Repr(PyObject_GetItem(PyObject_CallObject(PyObject_GetAttrString(len4load, (char*)"predict"),PyTuple_Pack(1,xtest)), PyLong_FromLong(0)));
            char* mcs5sa3839 = PyString_AsString(testobj);
            expected_th =  atof(mcs5sa3839);
-           //std::cout<<"Expected Th:"<<expected_th<<"\n";
+           ///std::cout<<"Expected Th:"<<expected_th<<"\n";
            expit->second = expected_th;
          }
        }
@@ -4893,7 +5022,7 @@ int MinstrelHtWifiManager::comparelastandcurrentplatform (float succratio, float
            testobj = PyObject_Repr(PyObject_GetItem(PyObject_CallObject(PyObject_GetAttrString(len1load, (char*)"predict"),PyTuple_Pack(1,xtest)), PyLong_FromLong(0)));
            char* mcs6sa550 = PyString_AsString(testobj);
            expected_th =  atof(mcs6sa550);
-           //std::cout<<"Expected Th:"<<expected_th<<"\n";
+           ///std::cout<<"Expected Th:"<<expected_th<<"\n";
            expit->second = expected_th;
          }
 
@@ -4902,7 +5031,7 @@ int MinstrelHtWifiManager::comparelastandcurrentplatform (float succratio, float
            testobj = PyObject_Repr(PyObject_GetItem(PyObject_CallObject(PyObject_GetAttrString(len2load, (char*)"predict"),PyTuple_Pack(1,xtest)), PyLong_FromLong(0)));
            char* mcs6sa1024 = PyString_AsString(testobj);
            expected_th =  atof(mcs6sa1024);
-           //std::cout<<"Expected Th:"<<expected_th<<"\n";
+           ///std::cout<<"Expected Th:"<<expected_th<<"\n";
            expit->second = expected_th;
          }
 
@@ -4911,7 +5040,7 @@ int MinstrelHtWifiManager::comparelastandcurrentplatform (float succratio, float
            testobj = PyObject_Repr(PyObject_GetItem(PyObject_CallObject(PyObject_GetAttrString(len3load, (char*)"predict"),PyTuple_Pack(1,xtest)), PyLong_FromLong(0)));
            char* mcs6sa2048 = PyString_AsString(testobj);
            expected_th =  atof(mcs6sa2048);
-           //std::cout<<"Expected Th:"<<expected_th<<"\n";
+           ///std::cout<<"Expected Th:"<<expected_th<<"\n";
            expit->second = expected_th;
          }
 
@@ -4920,7 +5049,7 @@ int MinstrelHtWifiManager::comparelastandcurrentplatform (float succratio, float
            testobj = PyObject_Repr(PyObject_GetItem(PyObject_CallObject(PyObject_GetAttrString(len4load, (char*)"predict"),PyTuple_Pack(1,xtest)), PyLong_FromLong(0)));
            char* mcs6sa3839 = PyString_AsString(testobj);
            expected_th =  atof(mcs6sa3839);
-           //std::cout<<"Expected Th:"<<expected_th<<"\n";
+           ///std::cout<<"Expected Th:"<<expected_th<<"\n";
            expit->second = expected_th;
          }
        }
@@ -4944,7 +5073,7 @@ int MinstrelHtWifiManager::comparelastandcurrentplatform (float succratio, float
            testobj = PyObject_Repr(PyObject_GetItem(PyObject_CallObject(PyObject_GetAttrString(len1load, (char*)"predict"),PyTuple_Pack(1,xtest)), PyLong_FromLong(0)));
            char* mcs7sa550 = PyString_AsString(testobj);
            expected_th =  atof(mcs7sa550);
-           //std::cout<<"Expected Th:"<<expected_th<<"\n";
+           ///std::cout<<"Expected Th:"<<expected_th<<"\n";
            expit->second = expected_th;
          }
 
@@ -4953,7 +5082,7 @@ int MinstrelHtWifiManager::comparelastandcurrentplatform (float succratio, float
            testobj = PyObject_Repr(PyObject_GetItem(PyObject_CallObject(PyObject_GetAttrString(len2load, (char*)"predict"),PyTuple_Pack(1,xtest)), PyLong_FromLong(0)));
            char* mcs7sa1024 = PyString_AsString(testobj);
            expected_th =  atof(mcs7sa1024);
-           //std::cout<<"Expected Th:"<<expected_th<<"\n";
+           ///std::cout<<"Expected Th:"<<expected_th<<"\n";
            expit->second = expected_th;
          }
 
@@ -4962,7 +5091,7 @@ int MinstrelHtWifiManager::comparelastandcurrentplatform (float succratio, float
            testobj = PyObject_Repr(PyObject_GetItem(PyObject_CallObject(PyObject_GetAttrString(len3load, (char*)"predict"),PyTuple_Pack(1,xtest)), PyLong_FromLong(0)));
            char* mcs7sa2048 = PyString_AsString(testobj);
            expected_th =  atof(mcs7sa2048);
-           //std::cout<<"Expected Th:"<<expected_th<<"\n";
+           ///std::cout<<"Expected Th:"<<expected_th<<"\n";
            expit->second = expected_th;
          }
 
@@ -4971,7 +5100,7 @@ int MinstrelHtWifiManager::comparelastandcurrentplatform (float succratio, float
            testobj = PyObject_Repr(PyObject_GetItem(PyObject_CallObject(PyObject_GetAttrString(len4load, (char*)"predict"),PyTuple_Pack(1,xtest)), PyLong_FromLong(0)));
            char* mcs7sa3839 = PyString_AsString(testobj);
            expected_th =  atof(mcs7sa3839);
-           //std::cout<<"Expected Th 3839:"<<expected_th<<"\n";
+           ///std::cout<<"Expected Th 3839:"<<expected_th<<"\n";
            expit->second = expected_th;
          }
        }
@@ -4987,7 +5116,7 @@ int MinstrelHtWifiManager::comparelastandcurrentplatform (float succratio, float
       if (highestexp < genit->second)
       {
         highestexp = genit->second;
-        //std::cout<<"HIGHEST EXP_TH:"<<highestexp<<"\n";
+        ///std::cout<<"HIGHEST EXP_TH:"<<highestexp<<"\n";
         highexpagglength = genit->first;
       }
 
@@ -5017,7 +5146,7 @@ int MinstrelHtWifiManager::comparelastandcurrentplatform (float succratio, float
 
         if(bannedagglengthcounterperstation[stadd][agglengthtoindexmap[previousaggregationlengthperstation[stadd]]] == 0)
         {
-          std::cout<<"\n";
+          //////std::cout<<"\n";
           bannedagglengthcounterperstation[stadd][agglengthtoindexmap[previousaggregationlengthperstation[stadd]]] = 10;
 
         }
@@ -5033,7 +5162,7 @@ int MinstrelHtWifiManager::comparelastandcurrentplatform (float succratio, float
       {
         if(bannedagglengthcounterperstation[stadd][agglengthtoindexmap[highexpagglength]] == 0)
         {
-          std::cout<<"\n";
+          //////std::cout<<"\n";
           bannedagglengthcounterperstation[stadd][agglengthtoindexmap[highexpagglength]] = 10;
 
         }
@@ -5086,10 +5215,7 @@ int MinstrelHtWifiManager::comparelastandcurrentplatform (float succratio, float
     Py_DECREF(file3args);
     Py_DECREF(file4args);
     Py_DECREF(testobj);
-    //PyList_SET_ITEM(listObj, 2, PyFloat_FromDouble(double(mcsva)));
-    /*PyRun_SimpleString("from time import time,ctime\n"
-                       "print 'Today is',ctime(time())\n");*/
-    //Py_XDECREF(listObj);
+
 
     Py_DECREF(xdata);
     Py_DECREF(xdatatup);
@@ -5101,8 +5227,8 @@ int MinstrelHtWifiManager::comparelastandcurrentplatform (float succratio, float
     Py_DECREF(keywords);
     Py_DECREF(xtest);
     Py_DECREF(jblen1load);
-    //std::cout<<"HIGHEST EXP_TH:"<<highestexp<<"\n";
-    //std::cout<<"The expected throughput is "<<highestexp<<" for aggregation length:"<<highexpagglength<<"\n";
+    ///std::cout<<"HIGHEST EXP_TH:"<<highestexp<<"\n";
+    ///std::cout<<"The expected throughput is "<<highestexp<<" for aggregation length:"<<highexpagglength<<"\n";
     return std::make_tuple(highexpagglength,highestexp);
   }
     //Py_Finalize();// this would render the interpreter uesless! hence sigsegv
@@ -5117,11 +5243,11 @@ int MinstrelHtWifiManager::comparelastandcurrentplatform (float succratio, float
 
       //only the exp_th values
       difference = (std::get<1>(rfrmodelplatform(succratio, gcu, lastattemptbytes, minstrel_th, currmcs, stadd)) - std::get<1>(rfrmodelplatform(succratio, gcu, lastattemptbytes, minstrel_th, lastmcs, stadd)))/std::get<1>(rfrmodelplatform(succratio, gcu, lastattemptbytes, minstrel_th, lastmcs, stadd));
-      std::cout<<"At the station MAC:"<<stadd<<" the current expected throughput is "<<std::get<1>(rfrmodelplatform(succratio, gcu, lastattemptbytes, minstrel_th, currmcs, stadd))<<" the last expected throughput is "<<std::get<1>(rfrmodelplatform(succratio, gcu, lastattemptbytes, minstrel_th, lastmcs, stadd))<< "\n";
+      //////std::cout<<"At the station MAC:"<<stadd<<" the current expected throughput is "<<std::get<1>(rfrmodelplatform(succratio, gcu, lastattemptbytes, minstrel_th, currmcs, stadd))<<" the last expected throughput is "<<std::get<1>(rfrmodelplatform(succratio, gcu, lastattemptbytes, minstrel_th, lastmcs, stadd))<< "\n";
       if (difference < 0.05)
       {
         //derive agg length
-        //std::cout<<"ad";
+        ///std::cout<<"ad";
         agglength = std::get<0>(rfrmodelplatform(succratio, gcu, lastattemptbytes, minstrel_th, lastmcs, stadd));
       }
       else
@@ -5130,8 +5256,20 @@ int MinstrelHtWifiManager::comparelastandcurrentplatform (float succratio, float
         agglength = std::get<0>(rfrmodelplatform(succratio, gcu, lastattemptbytes, minstrel_th, currmcs, stadd));
       }
 
-
+      maxagglengthperstation[stadd][agglengthtoindexmap[agglength]]++;
       return agglength;
     }
+
+  std::map<Mac48Address, std::array<int, 4> > MinstrelHtWifiManager::GetMaxAggregationlengthused()
+  {
+
+    return maxagglengthperstation;
+  }
+
+  std::map<Mac48Address, std::array<int, 8> > MinstrelHtWifiManager::GetMaxMcsused()
+  {
+
+    return maxmcsperstation;
+  }
 
 } // namespace ns3

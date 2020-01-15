@@ -24,51 +24,33 @@
 #include "ns3/packet.h"
 #include "msdu-aggregator.h"
 #include "amsdu-subframe-header.h"
-
+#include "ns3/globalvalues.h"
+//uint nstamsdu;
+//uint nsta;
+uint nsta;
 namespace ns3 {
 
 NS_LOG_COMPONENT_DEFINE ("MsduAggregator");
 
 NS_OBJECT_ENSURE_REGISTERED (MsduAggregator);
-//uint nsta = 10;
-std::map <Mac48Address, uint32_t> noofrxaggframesperstation = {{Mac48Address("00:00:00:00:00:01"), 0},{Mac48Address("00:00:00:00:00:02"), 0},{Mac48Address("00:00:00:00:00:03"), 0},
-                                                         {Mac48Address("00:00:00:00:00:04"), 0}, {Mac48Address("00:00:00:00:00:05"), 0}};/*, {Mac48Address("00:00:00:00:00:06"), 0},
-                                                         {Mac48Address("00:00:00:00:00:07"), 0}, {Mac48Address("00:00:00:00:00:08"), 0}, {Mac48Address("00:00:00:00:00:09"), 0},
-                                                         {Mac48Address("00:00:00:00:00:0a"), 0},{Mac48Address("00:00:00:00:00:0b"), 0},{Mac48Address("00:00:00:00:00:0c"), 0},
-                                                         {Mac48Address("00:00:00:00:00:0d"), 0},  {Mac48Address("00:00:00:00:00:0e"), 0},  {Mac48Address("00:00:00:00:00:0f"), 0},
-                                                         {Mac48Address("00:00:00:00:00:10"), 0},  {Mac48Address("00:00:00:00:00:11"), 0}, {Mac48Address("00:00:00:00:00:12"), 0},
-                                                         {Mac48Address("00:00:00:00:00:13"), 0},{Mac48Address("00:00:00:00:00:14"), 0}};//hard-code follow*/
 
-std::map <Mac48Address, uint32_t> noofrxaggpacketsperstation = {{Mac48Address("00:00:00:00:00:01"), 0},{Mac48Address("00:00:00:00:00:02"), 0},{Mac48Address("00:00:00:00:00:03"), 0},
-                                                         {Mac48Address("00:00:00:00:00:04"), 0}, {Mac48Address("00:00:00:00:00:05"), 0}};/*, {Mac48Address("00:00:00:00:00:06"), 0},
-                                                         {Mac48Address("00:00:00:00:00:07"), 0}, {Mac48Address("00:00:00:00:00:08"), 0}, {Mac48Address("00:00:00:00:00:09"), 0},
-                                                         {Mac48Address("00:00:00:00:00:0a"), 0},{Mac48Address("00:00:00:00:00:0b"), 0},{Mac48Address("00:00:00:00:00:0c"), 0},
-                                                         {Mac48Address("00:00:00:00:00:0d"), 0},  {Mac48Address("00:00:00:00:00:0e"), 0},  {Mac48Address("00:00:00:00:00:0f"), 0},
-                                                         {Mac48Address("00:00:00:00:00:10"), 0},  {Mac48Address("00:00:00:00:00:11"), 0}, {Mac48Address("00:00:00:00:00:12"), 0},
-                                                         {Mac48Address("00:00:00:00:00:13"), 0},{Mac48Address("00:00:00:00:00:14"), 0}};*/
+std::map <Mac48Address, uint32_t> noofrxaggframesperstation = {};
 
-std::map <Mac48Address, uint32_t> basicpayloadsizeperstation = {{Mac48Address("00:00:00:00:00:01"), 0},{Mac48Address("00:00:00:00:00:02"), 0},{Mac48Address("00:00:00:00:00:03"), 0},
-                                                         {Mac48Address("00:00:00:00:00:04"), 0}, {Mac48Address("00:00:00:00:00:05"), 0}};/*, {Mac48Address("00:00:00:00:00:06"), 0},
-                                                         {Mac48Address("00:00:00:00:00:07"), 0}, {Mac48Address("00:00:00:00:00:08"), 0}, {Mac48Address("00:00:00:00:00:09"), 0},
-                                                         {Mac48Address("00:00:00:00:00:0a"), 0},{Mac48Address("00:00:00:00:00:0b"), 0},{Mac48Address("00:00:00:00:00:0c"), 0},
-                                                         {Mac48Address("00:00:00:00:00:0d"), 0},  {Mac48Address("00:00:00:00:00:0e"), 0},  {Mac48Address("00:00:00:00:00:0f"), 0},
-                                                         {Mac48Address("00:00:00:00:00:10"), 0},  {Mac48Address("00:00:00:00:00:11"), 0}, {Mac48Address("00:00:00:00:00:12"), 0},
-                                                         {Mac48Address("00:00:00:00:00:13"), 0},{Mac48Address("00:00:00:00:00:14"), 0}};*/
+std::map <Mac48Address, uint32_t> noofrxaggpacketsperstation = {};
 
-std::map <Mac48Address, uint16_t> amsdusizeperstation = {{Mac48Address("00:00:00:00:00:01"), 3839},{Mac48Address("00:00:00:00:00:02"), 3839},{Mac48Address("00:00:00:00:00:03"), 3839},
-                                                         {Mac48Address("00:00:00:00:00:04"), 3839}, {Mac48Address("00:00:00:00:00:05"), 3839}};/*, {Mac48Address("00:00:00:00:00:06"), 0},
-                                                         {Mac48Address("00:00:00:00:00:07"), 0}, {Mac48Address("00:00:00:00:00:08"), 0}, {Mac48Address("00:00:00:00:00:09"), 0},
-                                                         {Mac48Address("00:00:00:00:00:0a"), 0},{Mac48Address("00:00:00:00:00:0b"), 0},{Mac48Address("00:00:00:00:00:0c"), 0},
-                                                         {Mac48Address("00:00:00:00:00:0d"), 0},  {Mac48Address("00:00:00:00:00:0e"), 0},  {Mac48Address("00:00:00:00:00:0f"), 0},
-                                                         {Mac48Address("00:00:00:00:00:10"), 0},  {Mac48Address("00:00:00:00:00:11"), 0}, {Mac48Address("00:00:00:00:00:12"), 0},
-                                                         {Mac48Address("00:00:00:00:00:13"), 0},{Mac48Address("00:00:00:00:00:14"), 0}};// turn the static nature to dynamic*/
+std::map <Mac48Address, uint32_t> basicpayloadsizeperstation = {};
+
+std::map <Mac48Address, uint16_t> amsdusizeperstation = {};
 
 uint nooftxaggframes = 0;
 uint noofrxaggframes = 0;
 uint nooftotalrxaggpkts = 0;
-uint32_t noofframestx[5]={0};//10
-uint32_t noofframesrx[5]={0};//10
-uint32_t noofpacketsrx[5]={0};//10
+
+std::vector<uint32_t> noofframesrx;//10
+std::vector<uint32_t> noofpacketsrx;//10
+
+bool setmaparraymsdu = false;
+
 
 TypeId
 MsduAggregator::GetTypeId (void)
@@ -83,7 +65,58 @@ MsduAggregator::GetTypeId (void)
 
 MsduAggregator::MsduAggregator ()
 {
+  if (!setmaparraymsdu)
+  {
+      SetAllMapsArraysmsdu();
+      setmaparraymsdu = true;
+
+  }
 }
+
+void MsduAggregator::SetAllMapsArraysmsdu(void)
+{
+  using namespace std;
+  cout<<nsta;
+  int decimal = nsta;
+  noofframesrx.resize(decimal);
+  noofpacketsrx.resize(decimal);
+
+ for (int i = 1; i <= decimal; i++)
+ {
+   stringstream my_ss;
+   my_ss << hex << i;
+   string res = my_ss.str();
+   string addressmac, extramac;
+
+   if (res.size()==1)
+   {
+     extramac = "00:00:00:00:00:0";
+     addressmac = extramac+res;
+   }
+  else
+  {
+    res.insert(0,"0");
+    extramac = "00:00:00:00:00:";
+    addressmac = extramac+res;
+
+  }
+
+  int charsize = addressmac.size();
+  char stringchar[charsize];
+  strcpy(stringchar, addressmac.c_str());
+
+
+   noofrxaggframesperstation.insert(std::pair<Mac48Address,uint32_t>(Mac48Address(stringchar),0));
+   noofrxaggpacketsperstation.insert(std::pair<Mac48Address,uint32_t>(Mac48Address(stringchar),0));
+   basicpayloadsizeperstation.insert(std::pair<Mac48Address,uint32_t>(Mac48Address(stringchar),0));//for forced mcs
+   amsdusizeperstation.insert(std::pair<Mac48Address,uint16_t>(Mac48Address(stringchar),3839));
+   cout<<"at 01 "<<stringchar<<"\n";
+ }
+
+
+}
+
+
 
 MsduAggregator::~MsduAggregator ()
 {
@@ -194,169 +227,46 @@ MsduAggregator::Deaggregate (Ptr<Packet> aggregatedPacket)
 
 
   NS_LOG_INFO ("Deaggreated A-MSDU: extracted " << set.size () << " MSDUs");
+
+  using namespace std;
+  int decimal = nsta;
+
+  noofframesrx.resize(decimal);
+  noofpacketsrx.resize(decimal);
+
+ for (int i = 1; i <= decimal; i++)
+ {
+   stringstream my_ss;
+   my_ss << hex << i;
+   string res = my_ss.str();
+   string addressmac, extramac;
+
+   if (res.size()==1)
+   {
+     extramac = "00:00:00:00:00:0";
+     addressmac = extramac+res;
+   }
+  else
+  {
+    res.insert(0,"0");
+    extramac = "00:00:00:00:00:";
+    addressmac = extramac+res;
+  }
+  int charsize = addressmac.size();
+  char stringchar[charsize];
+  strcpy(stringchar, addressmac.c_str());
+
+  if(dest == Mac48Address(stringchar))
+  {
+    noofframesrx[i-1]++;
+    noofrxaggframesperstation[dest]=noofframesrx[i-1];
+    noofpacketsrx[i-1]+=set.size();
+    noofrxaggpacketsperstation[dest]=noofpacketsrx[i-1];
+  }
+ }
+
   nooftotalrxaggpkts+=set.size();
 
-  if(dest == Mac48Address("00:00:00:00:00:01"))
-  {
-    noofframesrx[0]++;
-    noofrxaggframesperstation[dest]=noofframesrx[0];
-    noofpacketsrx[0]+=set.size();
-    noofrxaggpacketsperstation[dest]=noofpacketsrx[0];
-  }
-
-  if(dest == Mac48Address("00:00:00:00:00:02"))
-  {
-    noofframesrx[1]++;
-    noofrxaggframesperstation[dest]=noofframesrx[1];
-    noofpacketsrx[1]+=set.size();
-    noofrxaggpacketsperstation[dest]=noofpacketsrx[1];
-  }
-
-  if(dest == Mac48Address("00:00:00:00:00:03"))
-  {
-    noofframesrx[2]++;
-    noofrxaggframesperstation[dest]=noofframesrx[2];
-    noofpacketsrx[2]+=set.size();
-    noofrxaggpacketsperstation[dest]=noofpacketsrx[2];
-  }
-
-  if(dest == Mac48Address("00:00:00:00:00:04"))
-  {
-    noofframesrx[3]++;
-    noofrxaggframesperstation[dest]=noofframesrx[3];
-    noofpacketsrx[3]+=set.size();
-    noofrxaggpacketsperstation[dest]=noofpacketsrx[3];
-  }
-
-  if(dest == Mac48Address("00:00:00:00:00:05"))
-  {
-    noofframesrx[4]++;
-    noofrxaggframesperstation[dest]=noofframesrx[4];
-    noofpacketsrx[4]+=set.size();
-    noofrxaggpacketsperstation[dest]=noofpacketsrx[4];
-  }
-/*
-  if(dest == Mac48Address("00:00:00:00:00:06"))
-  {
-    noofframesrx[5]++;
-    noofrxaggframesperstation[dest]=noofframesrx[5];
-    noofpacketsrx[5]+=set.size();
-    noofrxaggpacketsperstation[dest]=noofpacketsrx[5];
-  }
-
-  if(dest == Mac48Address("00:00:00:00:00:07"))
-  {
-    noofframesrx[6]++;
-    noofrxaggframesperstation[dest]=noofframesrx[6];
-    noofpacketsrx[6]+=set.size();
-    noofrxaggpacketsperstation[dest]=noofpacketsrx[6];
-  }
-
-  if(dest == Mac48Address("00:00:00:00:00:08"))
-  {
-    noofframesrx[7]++;
-    noofrxaggframesperstation[dest]=noofframesrx[7];
-    noofpacketsrx[7]+=set.size();
-    noofrxaggpacketsperstation[dest]=noofpacketsrx[7];
-  }
-
-  if(dest == Mac48Address("00:00:00:00:00:09"))
-  {
-    noofframesrx[8]++;
-    noofrxaggframesperstation[dest]=noofframesrx[8];
-    noofpacketsrx[8]+=set.size();
-    noofrxaggpacketsperstation[dest]=noofpacketsrx[8];
-  }
-
-  if(dest == Mac48Address("00:00:00:00:00:0a"))
-  {
-    noofframesrx[9]++;
-    noofrxaggframesperstation[dest]=noofframesrx[9];
-    noofpacketsrx[9]+=set.size();
-    noofrxaggpacketsperstation[dest]=noofpacketsrx[9];
-  }
-
-    if(dest == Mac48Address("00:00:00:00:00:0b"))
-    {
-      noofframesrx[10]++;
-      noofrxaggframesperstation[dest]=noofframesrx[10];
-      noofpacketsrx[10]+=set.size();
-      noofrxaggpacketsperstation[dest]=noofpacketsrx[10];
-    }
-
-    if(dest == Mac48Address("00:00:00:00:00:0c"))
-    {
-      noofframesrx[11]++;
-      noofrxaggframesperstation[dest]=noofframesrx[11];
-      noofpacketsrx[11]+=set.size();
-      noofrxaggpacketsperstation[dest]=noofpacketsrx[11];
-    }
-
-    if(dest == Mac48Address("00:00:00:00:00:0d"))
-    {
-      noofframesrx[12]++;
-      noofrxaggframesperstation[dest]=noofframesrx[12];
-      noofpacketsrx[12]+=set.size();
-      noofrxaggpacketsperstation[dest]=noofpacketsrx[12];
-    }
-
-    if(dest == Mac48Address("00:00:00:00:00:0e"))
-    {
-      noofframesrx[13]++;
-      noofrxaggframesperstation[dest]=noofframesrx[13];
-      noofpacketsrx[13]+=set.size();
-      noofrxaggpacketsperstation[dest]=noofpacketsrx[13];
-    }
-
-    if(dest == Mac48Address("00:00:00:00:00:0f"))
-    {
-      noofframesrx[14]++;
-      noofrxaggframesperstation[dest]=noofframesrx[14];
-      noofpacketsrx[14]+=set.size();
-      noofrxaggpacketsperstation[dest]=noofpacketsrx[14];
-    }
-
-    if(dest == Mac48Address("00:00:00:00:00:10"))
-    {
-      noofframesrx[15]++;
-      noofrxaggframesperstation[dest]=noofframesrx[15];
-      noofpacketsrx[15]+=set.size();
-      noofrxaggpacketsperstation[dest]=noofpacketsrx[15];
-    }
-
-    if(dest == Mac48Address("00:00:00:00:00:11"))
-    {
-      noofframesrx[16]++;
-      noofrxaggframesperstation[dest]=noofframesrx[16];
-      noofpacketsrx[16]+=set.size();
-      noofrxaggpacketsperstation[dest]=noofpacketsrx[16];
-    }
-
-    if(dest == Mac48Address("00:00:00:00:00:12"))
-    {
-      noofframesrx[17]++;
-      noofrxaggframesperstation[dest]=noofframesrx[17];
-      noofpacketsrx[17]+=set.size();
-      noofrxaggpacketsperstation[dest]=noofpacketsrx[17];
-    }
-
-    if(dest == Mac48Address("00:00:00:00:00:13"))
-    {
-      noofframesrx[18]++;
-      noofrxaggframesperstation[dest]=noofframesrx[18];
-      noofpacketsrx[18]+=set.size();
-      noofrxaggpacketsperstation[dest]=noofpacketsrx[18];
-    }
-
-    if(dest == Mac48Address("00:00:00:00:00:14"))
-    {
-      noofframesrx[19]++;
-      noofrxaggframesperstation[dest]=noofframesrx[19];
-      noofpacketsrx[19]+=set.size();
-      noofrxaggpacketsperstation[dest]=noofpacketsrx[19];
-    }
-
-*/
   NS_LOG_DEBUG("No of A-MSDU "<<noofrxaggframes<<" and total number of aggregated pkts "<<nooftotalrxaggpkts<<'\n');
   return set;
 }

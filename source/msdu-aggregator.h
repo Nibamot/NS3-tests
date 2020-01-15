@@ -2,6 +2,8 @@
 /*
  * Copyright (c) 2009 MIRKO BANCHI
  *
+ *  Edited for aggregation and minstrel tips: Abin Thomas <tom.abin789@gmail.com>
+ *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
  * published by the Free Software Foundation;
@@ -80,6 +82,8 @@ public:
   bool Aggregate (Ptr<const Packet> packet, Ptr<Packet> aggregatedPacket,
                   Mac48Address src, Mac48Address dest) const;
 
+  //set all maps and arrays msdu aggregator
+  void SetAllMapsArraysmsdu (void);
   /**
    *
    * \param aggregatedPacket the aggregated packet.
@@ -87,7 +91,7 @@ public:
    */
   static DeaggregatedMsdus Deaggregate (Ptr<Packet> aggregatedPacket);
 
-  //Get number of rx aggregated super packets
+  //Get number of tx aggregated super packets
   static uint getnooftxaggframes(void);
 
   //Get number of rx aggregated super packets
@@ -96,9 +100,9 @@ public:
   //Get number of rx aggregated sub-frames
   static uint getnooftotalrxaggpkts(void);
 
-  //Get a map of station to the number of aggregated frames transmitted
+  /*//Get a map of station to the number of aggregated frames transmitted
   static std::map<Mac48Address, uint32_t> getnooftxaggframesperstation(void);//hard-code follow
-
+*/
 
   //Get a map of station to the number of aggregated frames received
   static std::map<Mac48Address, uint32_t> getnoofrxaggframesperstation(void);

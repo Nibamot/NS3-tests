@@ -37,23 +37,20 @@
 #include "msdu-aggregator.h"
 #include "mpdu-aggregator.h"
 #include "ctrl-headers.h"
+#include "ns3/globalvalues.h"
 
 #undef NS_LOG_APPEND_CONTEXT
 #define NS_LOG_APPEND_CONTEXT if (m_low != 0) { std::clog << "[mac=" << m_low->GetAddress () << "] "; }
 
+extern uint nsta;
 namespace ns3 {
 
-//hard
-std::map <Mac48Address, uint32_t> nooftxaggframesperstation = {{Mac48Address("00:00:00:00:00:01"), 0},{Mac48Address("00:00:00:00:00:02"), 0},{Mac48Address("00:00:00:00:00:03"), 0},
-                                                         {Mac48Address("00:00:00:00:00:04"), 0}, {Mac48Address("00:00:00:00:00:05"), 0}};/*, {Mac48Address("00:00:00:00:00:06"), 0},
-                                                         {Mac48Address("00:00:00:00:00:07"), 0}, {Mac48Address("00:00:00:00:00:08"), 0}, {Mac48Address("00:00:00:00:00:09"), 0},
-                                                         {Mac48Address("00:00:00:00:00:0a"), 0},{Mac48Address("00:00:00:00:00:0b"), 0},{Mac48Address("00:00:00:00:00:0c"), 0},
-                                                         {Mac48Address("00:00:00:00:00:0d"), 0},  {Mac48Address("00:00:00:00:00:0e"), 0},  {Mac48Address("00:00:00:00:00:0f"), 0},
-                                                         {Mac48Address("00:00:00:00:00:10"), 0},  {Mac48Address("00:00:00:00:00:11"), 0}, {Mac48Address("00:00:00:00:00:12"), 0},
-                                                         {Mac48Address("00:00:00:00:00:13"), 0},{Mac48Address("00:00:00:00:00:14"), 0}};*/
+
+std::map <Mac48Address, uint32_t> nooftxaggframesperstation = {};
 
 uint noofretransmissionsbytes = 0;
 uint noofretransmissions = 0;
+bool setmaparrayqos = false;
 NS_LOG_COMPONENT_DEFINE ("QosTxop");
 
 NS_OBJECT_ENSURE_REGISTERED (QosTxop);
@@ -100,11 +97,52 @@ QosTxop::QosTxop ()
   m_baManager->SetMaxPacketDelay (m_queue->GetMaxDelay ());
   m_baManager->SetTxOkCallback (MakeCallback (&QosTxop::BaTxOk, this));
   m_baManager->SetTxFailedCallback (MakeCallback (&QosTxop::BaTxFailed, this));
+
+  if (!setmaparrayqos)
+  {
+      SetAllMapsArrayqos();
+      setmaparrayqos = true;
+
+  }
 }
 
 QosTxop::~QosTxop ()
 {
   NS_LOG_FUNCTION (this);
+}
+
+void QosTxop::SetAllMapsArrayqos(void)
+{
+  using namespace std;
+  cout<<nsta;
+  int decimal = nsta;
+
+ for (int i = 1; i <= decimal; i++)
+ {
+   stringstream my_ss;
+   my_ss << hex << i;
+   string res = my_ss.str();
+   string addressmac, extramac;
+
+   if (res.size()==1)
+   {
+     extramac = "00:00:00:00:00:0";
+     addressmac = extramac+res;
+   }
+  else
+  {
+    res.insert(0,"0");
+    extramac = "00:00:00:00:00:";
+    addressmac = extramac+res;
+
+  }
+
+  int charsize = addressmac.size();
+  char stringchar[charsize];
+  strcpy(stringchar, addressmac.c_str());
+
+  nooftxaggframesperstation.insert(std::pair<Mac48Address,uint32_t>(Mac48Address(stringchar),0));
+ }
 }
 
 void

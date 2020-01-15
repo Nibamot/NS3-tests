@@ -82,6 +82,10 @@ public:
    * \param phy WifiPhy associated with this MacLow
    */
   void SetPhy (const Ptr<WifiPhy> phy);
+
+  void SetAllMapsArrayMacLow (void);
+
+
   /**
    * \return current attached PHY device
    */

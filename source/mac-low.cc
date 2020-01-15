@@ -40,13 +40,19 @@
 #include "wifi-phy.h"
 #include "wifi-net-device.h"
 #include "math.h"
+#include "ns3/globalvalues.h"
 
 #undef NS_LOG_APPEND_CONTEXT
 #define NS_LOG_APPEND_CONTEXT std::clog << "[mac=" << m_self << "] "
 
+extern uint nsta;
+
 namespace ns3 {
 std::map <Mac48Address, double> addressandsnr = {};
 std::map <Mac48Address, uint32_t> packetsizeperstation = {};
+Mac48Address uplinkstationsmaclow[3];
+bool setmaparraymaclow = false;
+
 NS_LOG_COMPONENT_DEFINE ("MacLow");
 
 /**
@@ -133,6 +139,44 @@ MacLow::MacLow ()
     {
       m_aggregateQueue[i] = CreateObject<WifiMacQueue> ();
     }
+
+    if (!setmaparraymaclow)
+    {
+        SetAllMapsArrayMacLow();
+        setmaparraymaclow = true;
+
+    }
+}
+
+void MacLow::SetAllMapsArrayMacLow(void)
+{
+  using namespace std;
+  int decimal = nsta;
+
+ for (int i = decimal+1; i <= decimal+3; i++)
+ {
+   stringstream my_ss;
+   my_ss << hex << i;
+   string res = my_ss.str();
+   string addressmac, extramac;
+
+   if (res.size()==1)
+   {
+     extramac = "00:00:00:00:00:0";
+     addressmac = extramac+res;
+   }
+  else
+  {
+    res.insert(0,"0");
+    extramac = "00:00:00:00:00:";
+    addressmac = extramac+res;
+
+  }
+  int charsize = addressmac.size();
+  char stringchar[charsize];
+  strcpy(stringchar, addressmac.c_str());
+  uplinkstationsmaclow[i-decimal-1] = Mac48Address(stringchar);
+ }
 }
 
 MacLow::~MacLow ()
@@ -716,7 +760,7 @@ MacLow::ReceiveOk (Ptr<Packet> packet, double rxSnr, WifiTxVector txVector, bool
 
   std::string s2 = mos.str();
   //hard-coded
-  if(m_self != Mac48Address("00:00:00:00:00:08") && hdr.GetAddr2() == Mac48Address("00:00:00:00:00:08") && s2.find(s1) != std::string::npos)//0d
+  if(m_self != uplinkstationsmaclow[2] && hdr.GetAddr2() == uplinkstationsmaclow[2] && s2.find(s1) != std::string::npos)//0d
   {
     NS_LOG_DEBUG("size of total packet "<<packet->GetSize());
     packetsizeperstation[m_self]=packet->GetSize();

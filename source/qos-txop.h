@@ -173,6 +173,9 @@ public:
    * Notify the EDCAF that internal collision has occurred.
    */
   void NotifyInternalCollision (void);
+
+  //set all maps and arrays msdu aggregator
+  void SetAllMapsArrayqos (void);
   /**
    * Notify the EDCAF that collision has occurred.
    */

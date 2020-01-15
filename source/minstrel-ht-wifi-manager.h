@@ -35,7 +35,6 @@ namespace ns3 {
  * Data structure to save transmission time calculations per rate.
  */
 typedef std::map<WifiMode, Time> TxTime;
-
 /**
  * Data structure to contain the information that defines a group.
  * It also contains the transmission times for all the MCS in the group.
@@ -216,6 +215,9 @@ public:
    */
   typedef void (*RateChangeTracedCallback)(const uint64_t rate, const Mac48Address remoteAddress);
 
+  //Get most used agg size
+  static std::map<Mac48Address, std::array<int, 4> > GetMaxAggregationlengthused();
+  static std::map<Mac48Address, std::array<int, 8> > GetMaxMcsused();
 
 private:
   // Overridden from base class.
@@ -586,6 +588,8 @@ private:
   uint8_t m_numRates;        //!< Number of rates per group Minstrel should consider.
   bool m_useVhtOnly;         //!< If only VHT MCS should be used, instead of HT and VHT.
   bool m_printStats;         //!< If statistics table should be printed.
+  bool m_setallmaparrays;      //!< If all maps and arrays have been set according to the number of stations.
+  uint m_noofstations;       //!< Number of stations that should be used in order to make the maps dynamic.
 
   MinstrelMcsGroups m_minstrelGroups;                 //!< Global array for groups information.
 
@@ -595,18 +599,32 @@ private:
 
   TracedValue<uint64_t> m_currentRate; //!< Trace rate changes
 
-
+  void SetAllMapsArrays (void);
   //M5P model for ns3
   std::tuple<int, float> m5pmodelns3(float successratio, float gcu, uint16_t mcsvalue, Mac48Address stadd);
+
+  //RFR model for ns3
+  std::tuple<int, float> rfrmodelns3(float successratio, float gcu, uint16_t mcsvalue, Mac48Address stadd);
 
   //M5P model for platform
   std::tuple<int, float> m5pmodelplatform(float succratio, float gcu, float lastattemptbytes, float minstrel_th, uint16_t mcsvalue, Mac48Address stadd);
 
-  //compare last and current mcs at ns3
+  //RFR model for platform
+  std::tuple<int, float> rfrmodelplatform(float succratio, float gcu, float lastattemptbytes, float minstrel_th, uint16_t mcsvalue, Mac48Address stadd);
+
+  //compare last and current mcs at ns3 m5p
   int comparelastandcurrent (float succratio, float gcu, uint16_t currmcs, uint16_t lastmcs, Mac48Address staadd);
 
-  //compare last and current mcs at platform
+  //compare last and current mcs at ns3 rfr
+  int comparelastandcurrentrfrns3 (float succratio, float gcu, uint16_t currmcs, uint16_t lastmcs, Mac48Address staadd);
+
+  //compare last and current mcs at platform m5p
   int comparelastandcurrentplatform (float succratio, float gcu, float lastattemptbytes, float minstrel_th, uint16_t currmcs, uint16_t lastmcs, Mac48Address staadd);
+
+  //compare last and current mcs at platform rfr
+  int comparelastandcurrentrfrplatform (float succratio, float gcu, float lastattemptbytes, float minstrel_th, uint16_t currmcs, uint16_t lastmcs, Mac48Address staadd);
+
+
 };
 
 } // namespace ns3
